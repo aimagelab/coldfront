@@ -7,6 +7,7 @@ import sys
 from coldfront.core.resource.models import Resource
 from coldfront.plugins.slurm.utils import (SLURM_ACCOUNT_ATTRIBUTE_NAME,
                                            SLURM_CLUSTER_ATTRIBUTE_NAME,
+                                           SLURM_BUDGET_ATTRIBUTE_NAME,
                                            SLURM_SPECS_ATTRIBUTE_NAME,
                                            SLURM_USER_SPECS_ATTRIBUTE_NAME,
                                            SlurmError)
@@ -197,6 +198,8 @@ class SlurmAccount(SlurmBase):
                 allocation, self.name)))
 
         self.specs += allocation.get_attribute_list(SLURM_SPECS_ATTRIBUTE_NAME)
+        budget = allocation.get_attribute_list(SLURM_BUDGET_ATTRIBUTE_NAME)
+        self.specs += ['GrpTRESMins=billing=%s' % (b*60) for b in budget]
 
         allocation_user_specs = allocation.get_attribute_list(SLURM_USER_SPECS_ATTRIBUTE_NAME)
         for u in allocation.allocationuser_set.filter(status__name='Active'):

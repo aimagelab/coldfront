@@ -151,7 +151,7 @@ Center Summary
     $.ajax({
       headers: { 'X-CSRFToken': getCookie('csrftoken') },
       type: "GET",
-      url: "/allocation-summary",
+      url: "/coldfront/allocation-summary",
       success: function (data) {
         $('#allocation-summary').html(data);
       }
@@ -162,7 +162,7 @@ Center Summary
     $.ajax({
       headers: { 'X-CSRFToken': getCookie('csrftoken') },
       type: "GET",
-      url: "/allocation-by-fos",
+      url: "/coldfront/allocation-by-fos",
       success: function (data) {
         $('#allocation-by-fos').html(data);
         $('#fos-table').DataTable({

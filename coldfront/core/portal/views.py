@@ -28,7 +28,7 @@ def home(request):
             (Q(status__name__in=['New', 'Active', ]) &
              Q(projectuser__user=request.user) &
              Q(projectuser__status__name__in=['Active', ]))
-        ).distinct().order_by('-created')[:5]
+        ).distinct().order_by('-created')
 
         allocation_list = Allocation.objects.filter(
             Q(status__name__in=['Active', 'New', 'Renewal Requested', ]) &
@@ -37,7 +37,7 @@ def home(request):
             Q(project__projectuser__status__name__in=['Active', ]) &
             Q(allocationuser__user=request.user) &
             Q(allocationuser__status__name__in=['Active', ])
-        ).distinct().order_by('-created')[:5]
+        ).distinct().order_by('-created')
         context['project_list'] = project_list
         context['allocation_list'] = allocation_list
         try:

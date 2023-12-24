@@ -1,10 +1,32 @@
 {% load portal_tags %}
+{% load static %}
 
-
-<footer id="footer" class="footer bg-primary customize_footer">
+<footer id="footer" class="footer">
   <div class="container">
-    <div class="row justify-content-center">
-      <p>Powered by ColdFront Version {% get_version %} | <a href="https://github.com/ubccr/coldfront"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a></p>
+    <div id="footer-div-main" class="row" sytle="margin-bottom:5px;">
+      <div class="col-md-2 col-sm-4 d-none d-sm-block">
+        <a href="http://aimagelab.ing.unimore.it/">
+          <img class="img-fluid" src="{% static 'common/images/aimagelab.png' %}" alt="AImageLab, University of Modena and Reggio Emilia"></a>
+      </div>
+      <div class="col-md-5 ">
+        <div id="address">
+            AImageLab
+            <br>Università degli Studi di Modena e Reggio Emilia
+        </div>
+        <div class="clearfix"></div>
+
+      </div>
+      <div class="col-md-3 d-none d-sm-block">
+        Quick Links
+        <ul>
+            <li><a href="https://ailb-web.ing.unimore.it/wiki">Wiki</a></li>
+            <li><a href="https://ailb-web.ing.unimore.it/tickets/">Service Desk</a></li>
+        </ul>
+      </div>
+    </div>
+    <div>
+         <p><small>Powered by ColdFront Version {% get_version %} | <a href="https://github.com/ubccr/coldfront"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a></small></p>
     </div>
   </div>
+
 </footer>

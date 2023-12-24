@@ -85,7 +85,7 @@ def center_summary(request):
     total_grants_by_agency_count = {
         ele['funding_agency__name']: ele['count'] for ele in total_grants_by_agency_count}
 
-    total_grants_by_agency = [['{}: ${} ({})'.format(
+    total_grants_by_agency = [['{}: {}€ ({})'.format(
         ele['funding_agency__name'],
         intcomma(int(ele['total_amount'])),
         total_grants_by_agency_count[ele['funding_agency__name']]

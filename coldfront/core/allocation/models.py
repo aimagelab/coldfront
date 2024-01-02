@@ -340,7 +340,7 @@ class Allocation(TimeStampedModel):
         return perm in perms
 
     def __str__(self):
-        return "%s (%s)" % (self.get_parent_resource.name, self.project.pi)
+        return "%s (%s)" % (self.get_parent_resource.name, self.project.title)
 
 class AllocationAdminNote(TimeStampedModel):
     """ An allocation admin note is a note that an admin makes on an allocation.

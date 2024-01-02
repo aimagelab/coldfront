@@ -231,6 +231,11 @@ class ProjectListView(LoginRequiredMixin, ListView):
                     Q(projectuser__status__name='Active')
                 )
 
+            # Project Title
+            if data.get('title'):
+                projects = projects.filter(
+                    title__icontains=data.get('title'))
+
             # Field of Science
             if data.get('field_of_science'):
                 projects = projects.filter(
@@ -484,7 +489,7 @@ class ProjectCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 class ProjectUpdateView(SuccessMessageMixin, LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Project
     template_name_suffix = '_update_form'
-    fields = ['title', 'description', 'field_of_science', ]
+    fields = ['description', 'field_of_science', ]
     success_message = 'Project updated.'
 
     def test_func(self):

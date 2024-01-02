@@ -23,11 +23,13 @@ class ProjectSearchForm(forms.Form):
     """
     LAST_NAME = 'Last Name'
     USERNAME = 'Username'
+    TITLE = 'Project Title'
     FIELD_OF_SCIENCE = 'Field of Science'
 
     last_name = forms.CharField(
         label=LAST_NAME, max_length=100, required=False)
     username = forms.CharField(label=USERNAME, max_length=100, required=False)
+    title = forms.CharField(label=TITLE, max_length=100, required=False)
     field_of_science = forms.CharField(
         label=FIELD_OF_SCIENCE, max_length=100, required=False)
     show_all_projects = forms.BooleanField(initial=False, required=False)

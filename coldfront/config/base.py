@@ -58,6 +58,7 @@ INSTALLED_APPS += [
     'django_q',
     'simple_history',
     'fontawesome_free',
+    'impersonate',
 ]
 
 # ColdFront Apps
@@ -86,6 +87,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
+    'impersonate.middleware.ImpersonateMiddleware',
 ]
 
 #------------------------------------------------------------------------------

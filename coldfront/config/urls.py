@@ -36,3 +36,5 @@ if 'mozilla_django_oidc' in settings.INSTALLED_APPS:
 
 if 'django_su.backends.SuBackend' in settings.AUTHENTICATION_BACKENDS:
     urlpatterns.append(path('su/', include('django_su.urls')))
+
+urlpatterns.append(path('impersonate/', include('impersonate.urls')))

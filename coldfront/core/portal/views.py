@@ -37,7 +37,7 @@ def home(request):
             Q(project__projectuser__status__name__in=['Active', ]) &
             Q(allocationuser__user=request.user) &
             Q(allocationuser__status__name__in=['Active', ])
-        ).distinct().order_by('-created')
+        ).distinct().order_by('end_date')
         context['project_list'] = project_list
         context['allocation_list'] = allocation_list
         try:

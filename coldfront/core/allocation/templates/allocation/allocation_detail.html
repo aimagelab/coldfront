@@ -113,6 +113,10 @@ Allocation Detail
                 Expires in {{allocation.expires_in}} day{{allocation.expires_in|pluralize}} - Click to renew
                 </span>
                 </a>
+              {% elif allocation.status.name == 'Active' and allocation.expires_in <= 60 and allocation.expires_in >= 0 %}
+              <span class="badge badge-warning"><i class="far fa-clock" aria-hidden="true"></i>
+                Expires in {{allocation.expires_in}} day{{allocation.expires_in|pluralize}}
+              </span>
               {% endif %}
             </td>
           </tr>

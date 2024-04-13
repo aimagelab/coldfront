@@ -4,12 +4,13 @@ from enum import Enum
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.core.validators import MinLengthValidator
+from django.core.validators import MinLengthValidator, MaxLengthValidator
 from django.db import models
 from ast import literal_eval
 from coldfront.core.utils.validate import AttributeValidator
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
+from martor.models import MartorField
 
 from coldfront.core.field_of_science.models import FieldOfScience
 from coldfront.core.utils.common import import_from_settings
@@ -72,20 +73,17 @@ class Project(TimeStampedModel):
             return self.get(title=title, pi__username=pi_username)
 
 
-    DEFAULT_DESCRIPTION = '''
-We do not have information about your research. Please provide a detailed description of your work and update your field of science. Thank you!
-        '''
-
     title = models.CharField(max_length=255,)
     pi = models.ForeignKey(User, on_delete=models.CASCADE,)
-    description = models.TextField(
-        default=DEFAULT_DESCRIPTION,
+    description = models.CharField(
+        max_length=10000,
         validators=[
             MinLengthValidator(
                 10,
                 'The project description must be > 10 characters.',
             )
         ],
+        help_text='One-line description of the project.',
     )
 
     field_of_science = models.ForeignKey(FieldOfScience, on_delete=models.CASCADE, default=FieldOfScience.DEFAULT_PK)
@@ -94,6 +92,53 @@ We do not have information about your research. Please provide a detailed descri
     requires_review = models.BooleanField(default=True)
     history = HistoricalRecords()
     objects = ProjectManager()
+
+    # Further field for project proposal
+    # Project type (can be selected from a list), among: 
+    # - Large research project, connected to a national or international competitive project (up to 100.000 standard hours)
+    # - Industrial research project (i.e. "conto terzi") (up to 100.000 standard hours)
+    # - Medium research project, connected to a national competitive project (up to 50.000 standard hours)
+    # - PhD student support project (up to 20.000 standard hours per year)
+    # - MSc thesis project (up to 10.000 standard hours)
+    # - Support to teaching, including group projects (up to 25.000 standard hours)
+    PROJECT_TYPE_CHOICES = [
+        ('B', 'Large research project, connected to a national or international competitive project (up to 100.000 standard hours)'),
+        ('BI', 'Industrial research project (i.e. "conto terzi") (up to 100.000 standard hours)'),
+        ('C', 'Medium research project, connected to a national competitive project (up to 50.000 standard hours)'),
+        ('D', 'PhD student support project (up to 20.000 standard hours per year)'),
+        ('E', 'MSc thesis project (up to 10.000 standard hours)'),
+        ('F', 'Support to teaching, including group projects (up to 25.000 standard hours)'),
+    ]
+    project_type = models.CharField(max_length=2, choices=PROJECT_TYPE_CHOICES, null=True, blank=True)
+
+    DESCRIPTION_OF_RESEARCH_HELP_TEXT = textwrap.dedent('''\
+    This section, including references, cannot exceed 20.000 char and is expected to detail how the specific scientific/computational goals will be achieved and to define detailed workplan.<br />
+    Proposals will be evaluated on both scientific and technical merit. The provided information should be sufficient for the reviewers in your research field to provide a scientific evaluation of the proposal and to understand if the computational methodology is suitable to reach the project's goals. Furthermore, a general scientific cross-comparison with proposals in other disciplines should be feasible.<br />
+    The list of the topics that MUST be detailed/included follows (please notice that incomplete descriptions will lead to the project rejection).<br />
+    - Scientific framework<br />
+    - Project objectives<br />
+    - Theoretical and computational methods employed<br />
+    - List of the applications to be used and their performance on parallel architectures (scalability and load-balancing)<br />
+    - Detailed workplan and timetable of the activities (GANTT)<br />
+    - Place the proposed research in the context of competing work in your discipline<br />
+    - Explain what scientific advances you expect to be enabled by an award that justifies an allocation of large-scale resources''')
+    description_of_research = MartorField(validators=[MaxLengthValidator(20000)], blank=True, null=True,
+                                               verbose_name='Description of Research',
+                                               help_text=DESCRIPTION_OF_RESEARCH_HELP_TEXT)
+    
+    COMPUTATIONAL_APPROACH_HELP_TEXT = textwrap.dedent('''\
+    Provide quantitative evidence of the HPC performances of the production application you will adopt in the project (scalability, efficiency, 
+    I/O performances). Parallel performances in either strong or weak scaling mode should be provided. Weak scaling behaviors are probed by holding 
+    per-processor computational work constant (e.g., the size of the mesh on a processor is held constant) as the total problem size grows with number 
+    of processors. Strong scaling behaviors are probed by holding the total problem size constant as the processor count grows, thereby decreasing 
+    the per-processor computational work. Benchmark data should be provided in either tabular or graphical form, or both; the speedup curve should 
+    be supplied as well for strong scaling examples. Where appropriate, characterize the application's single-node performance (ex. percent of peak).''')
+    computational_approach = MartorField(validators=[MaxLengthValidator(20000)], blank=True, null=True,
+                                                  verbose_name='Computational Approach',
+                                                  help_text=COMPUTATIONAL_APPROACH_HELP_TEXT)
+    
+    financed_project_text = models.FileField(upload_to='financed_project_text', blank=True, null=True, help_text='If this project is financed by a grant, please upload the grant text here.')
+
 
     def clean(self):
         """ Validates the project and raises errors if the project is invalid. """

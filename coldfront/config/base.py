@@ -58,6 +58,7 @@ INSTALLED_APPS += [
     'django_q',
     'simple_history',
     'fontawesome_free',
+    'martor',
     'impersonate',
 ]
 
@@ -156,3 +157,21 @@ if len(SITE_STATIC) > 0:
 # Add system site static files
 if os.path.isdir('/usr/share/coldfront/site/static'):
     STATICFILES_DIRS.insert(0, '/usr/share/coldfront/site/static')
+
+# Martor
+MARTOR_THEME = 'bootstrap'
+MARTOR_ENABLE_CONFIGS = {
+    'emoji': 'false',        # to enable/disable emoji icons.
+    'imgur': 'false',        # to enable/disable imgur/custom uploader.
+    'mention': 'false',      # to enable/disable mention
+    'jquery': 'true',        # to include/revoke jquery (require for admin default django)
+    'living': 'false',       # to enable/disable live updates in preview
+    'spellcheck': 'false',   # to enable/disable spellcheck in form textareas
+    'hljs': 'true',          # to enable/disable hljs highlighting in preview
+}
+MARTOR_TOOLBAR_BUTTONS = [
+    'bold', 'italic', 'horizontal', 'heading', 'pre-code',
+    'blockquote', 'unordered-list', 'ordered-list',
+    'link', 'image-link', 'direct-mention', 'toggle-maximize', 'help'
+]
+MARTOR_ENABLE_LABEL = True

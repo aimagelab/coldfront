@@ -2,14 +2,24 @@
 {% load crispy_forms_tags %}
 {% load static %}
 
+{% block css %}
+<link href="{% static 'plugins/css/ace.min.css' %}" type="text/css" media="all" rel="stylesheet" />
+<link href="{% static 'plugins/css/resizable.min.css' %}" type="text/css" media="all" rel="stylesheet" />
+<link href="{% static 'martor/css/martor.bootstrap.min.css' %}" type="text/css" media="all" rel="stylesheet" />
+{% endblock %}
+
 
 {% block title %}
-Create Project
+Propose Project
 {% endblock %}
 
 
 {% block content %}
- <form method="post">
+<h2>Project Proposal</h2>
+<hr>
+
+
+<form method="post">
   {% csrf_token %}
   {{ form|crispy }}
   <input class="btn btn-primary" type="submit" value="Save" />
@@ -21,4 +31,17 @@ Create Project
     $('#id_field_of_science').select2();
   });
 </script>
+{% endblock %}
+
+{% block javascript %}
+<script type="text/javascript" src="{% static 'plugins/js/ace.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/mode-markdown.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/ext-language_tools.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/theme-github.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/typo.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/spellcheck.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/highlight.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/resizable.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/emojis.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'martor/js/martor.bootstrap.min.js' %}"></script>
 {% endblock %}

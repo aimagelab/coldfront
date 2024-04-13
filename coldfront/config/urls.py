@@ -4,6 +4,7 @@ ColdFront URL Configuration
 from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
+from django.conf.urls.static import static
 from django.views.generic import TemplateView
 
 import coldfront.core.portal.views as portal_views
@@ -39,3 +40,5 @@ if 'django_su.backends.SuBackend' in settings.AUTHENTICATION_BACKENDS:
 
 urlpatterns.append(path('martor/', include('martor.urls')))
 urlpatterns.append(path('impersonate/', include('impersonate.urls')))
+
+urlpatterns = urlpatterns + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

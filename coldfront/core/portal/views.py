@@ -6,7 +6,9 @@ from django.contrib.humanize.templatetags.humanize import intcomma
 from django.db.models import Count, Q, Sum
 from django.shortcuts import render
 from django.views.decorators.cache import cache_page
+from django.utils import timezone
 
+from coldfront.core.portal.models import Carousel
 from coldfront.core.allocation.models import Allocation, AllocationUser
 from coldfront.core.grant.models import Grant
 from coldfront.core.portal.utils import (generate_allocations_chart_data,
@@ -46,6 +48,10 @@ def home(request):
             pass
     else:
         template_name = 'portal/nonauthorized_home.html'
+        # Filter active carousels (with expiry date in the future or no expiry date)
+        context['carousel_list'] = Carousel.objects.filter(
+            Q(expiry_date__gte=timezone.now()) | Q(expiry_date=None)).order_by('-id')
+
 
     context['EXTRA_APPS'] = settings.INSTALLED_APPS
 

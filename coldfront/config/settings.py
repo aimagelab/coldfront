@@ -43,6 +43,9 @@ local_configs = [
     PROJECT_ROOT('local_settings.py')
 ]
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = '/srv/coldfront/media/'
+
 if ENV.str('COLDFRONT_CONFIG', default='') != '':
     # Local settings from path specified via environment variable
     local_configs.append(environ.Path(ENV.str('COLDFRONT_CONFIG'))())

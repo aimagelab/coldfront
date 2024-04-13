@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
+from coldfront.core.portal.models import Carousel
 
 
 @admin.register(LogEntry)
@@ -13,3 +14,5 @@ class LogEntryAdmin(admin.ModelAdmin):
         'change_message',)
 
     search_fields = ['user__username', 'user__first_name', 'user__last_name']
+
+admin.site.register(Carousel)

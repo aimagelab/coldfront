@@ -324,10 +324,12 @@ Allocation Detail
               <td>{{ user.user.first_name }}</td>
               <td>{{ user.user.last_name }}</td>
               <td>{{ user.user.email }}</td>
-              {% if user.status.name == 'Active' %}
+              {% if user.status.name == 'Active' and user.user.is_active %}
                 <td class="text-success">{{ user.status.name }}</td>
               {% elif user.status.name == 'Denied' or user.status.name == 'Error' %}
                 <td class="text-danger">{{ user.status.name }}</td>
+              {% elif not user.user.is_active %}
+                <td class="text-danger">Expired username</td>
               {% else %}
                 <td class="text-info">{{ user.status.name }}</td>
               {% endif %}

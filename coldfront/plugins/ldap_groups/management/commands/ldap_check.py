@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = 'Sync groups in LDAP'
 
+    def __init__(self):
+        super().__init__()
+        self.ldap = LDAP()
+
     def add_arguments(self, parser):
         parser.add_argument(
             "-s", "--sync", help="Sync changes to/from LDAP", action="store_true")
@@ -39,7 +43,7 @@ class Command(BaseCommand):
     def add_group(self, user, group, status):
         if self.sync and not self.noop:
             try:
-                LDAP().group_add_member(group, user=[user.username])
+                self.ldap.group_add_member(group, user=[user.username])
             except AlreadyMemberError as e:
                 logger.warn("User %s is already a member of group %s",
                             user.username, group)
@@ -63,7 +67,7 @@ class Command(BaseCommand):
     def remove_group(self, user, group, status):
         if self.sync and not self.noop:
             try:
-                LDAP().group_remove_member(
+                self.ldap.group_remove_member(
                     group, user=[user.username])
             except NotMemberError as e:
                 logger.warn("User %s is not a member of group %s",
@@ -105,7 +109,7 @@ class Command(BaseCommand):
         groups = []
         status = 'Unknown'
         try:
-            groups = LDAP().get_groups_of_user(user.username)
+            groups = self.ldap.get_groups_of_user(user.username)
             if 'past_members' not in groups:
                 status = 'Enabled'
             else:
@@ -135,6 +139,14 @@ class Command(BaseCommand):
                 logger.warn(
                     'User %s should be removed from LDAP group: %s', user.username, g)
                 self.remove_group(user, g, status)
+
+        # Lastly, update user e-mail from LDAP
+        try:
+            user.email = self.ldap.get_email(user.username)
+            user.save()
+        except Exception as e:
+            logger.error('Failed to update user e-mail: %s - %s',
+                         user.username, e)
 
     def process_user(self, user):
         if self.filter_user and self.filter_user != user.username:

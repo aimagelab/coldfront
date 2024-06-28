@@ -77,3 +77,8 @@ class LDAP:
         self.conn.search(self.LDAP_GROUP_SEARCH_BASE, search_filter, attributes=['cn',])
         return [entry['cn'][0] for entry in self.conn.entries]
     
+    def get_email(self, username):
+        search_filter='(|(&(objectClass=*)(uid=%s)))' % username
+        self.conn.search(self.LDAP_USER_SEARCH_BASE, search_filter, attributes=['mail',])
+        return self.conn.entries[0]['mail'][0]
+    

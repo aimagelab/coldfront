@@ -18,6 +18,14 @@
       border-radius: 10px;
       padding: 10px;
     }
+
+    /* Make sure links are white when mouse passes on them */
+    .carousel-caption a {
+      color: white;
+    }
+    .carousel-caption a:hover {
+      color: white;
+    }
   </style>
 {% endblock %}
 
@@ -32,7 +40,7 @@
       <div class="carousel-item {% if forloop.first %}active{% endif %}">
         <img src="/coldfront/{{ c.image.url }}" class="rounded" alt="image1">
         <div class="carousel-caption">
-          <h3>{{ c.title }}</h3>
+          <h3>{% if c.news %}<a href="{% url 'news' c.news.id %}" style=":hover { color: white; }">{% endif %}{{ c.title }}{% if c.news %}</a>{% endif %}</h3>
           <p>{{ c.description }}</p>
         </div>
       </div>

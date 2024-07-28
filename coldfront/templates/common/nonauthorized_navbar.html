@@ -16,6 +16,9 @@
         <li id="navbar-center-summary" class="nav-item">
           <a class="nav-link" href="{% url 'center-summary' %}">Center Summary</a>
         </li>
+        <li id="navbar-news" class="nav-item">
+          <a class="nav-link" href="{% url 'news-list' %}">News</a>
+        </li>
         {% if settings.CENTER_HELP_URL %}
           {% include 'common/navbar_help.html' %}
         {% endif %}

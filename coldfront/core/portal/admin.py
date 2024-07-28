@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
-from coldfront.core.portal.models import Carousel
+from coldfront.core.portal.models import Carousel, News
 
 
 @admin.register(LogEntry)
@@ -16,3 +16,4 @@ class LogEntryAdmin(admin.ModelAdmin):
     search_fields = ['user__username', 'user__first_name', 'user__last_name']
 
 admin.site.register(Carousel)
+admin.site.register(News)

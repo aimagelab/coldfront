@@ -8,7 +8,7 @@ from django.shortcuts import render
 from django.views.decorators.cache import cache_page
 from django.utils import timezone
 
-from coldfront.core.portal.models import Carousel
+from coldfront.core.portal.models import Carousel, News
 from coldfront.core.allocation.models import Allocation, AllocationUser
 from coldfront.core.grant.models import Grant
 from coldfront.core.portal.utils import (generate_allocations_chart_data,
@@ -159,3 +159,15 @@ def allocation_summary(request):
     context['resources_chart_data'] = resources_chart_data
 
     return render(request, 'portal/allocation_summary.html', context)
+
+
+#@cache_page(60 * 15)
+def news(request, pk):
+    news = News.objects.get(pk=pk)
+    return render(request, 'portal/news.html', {'news': news})
+
+
+#@cache_page(60 * 15)
+def news_list(request):
+    news = News.objects.filter(Q(expiry_date__gte=timezone.now()) | Q(expiry_date__isnull=True)).order_by('-publication_date')
+    return render(request, 'portal/news_list.html', {'news_list': news})

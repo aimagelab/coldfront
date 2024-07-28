@@ -1,0 +1,38 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+{% load common_tags %}
+{% load humanize %}
+{% load martortags %}
+
+
+{% block title %}
+News
+{% endblock %}
+
+
+{% block content %}
+<h2>{{ news.title }}</h2>
+<hr>
+
+<div class="card mb-3 border-primary">
+  <div class="card-header bg-primary text-white">
+    <i class="fas fa-newspaper" aria-hidden="true"></i> Article
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-12">
+        <p>{{ news.body|safe_markdown }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-footer">
+    <div class="row">
+      <div class="col-md-12">
+        <a href="{% url 'news-list' %}" class="btn btn-primary">Back to News</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
-from coldfront.core.portal.models import Carousel, News
+from coldfront.core.portal.models import Carousel, News, DocumentationArticle
 
 
 @admin.register(LogEntry)
@@ -17,3 +17,4 @@ class LogEntryAdmin(admin.ModelAdmin):
 
 admin.site.register(Carousel)
 admin.site.register(News)
+admin.site.register(DocumentationArticle)

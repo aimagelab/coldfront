@@ -7,8 +7,9 @@ from django.db.models import Count, Q, Sum
 from django.shortcuts import render
 from django.views.decorators.cache import cache_page
 from django.utils import timezone
+from django.core.exceptions import ObjectDoesNotExist
 
-from coldfront.core.portal.models import Carousel, News
+from coldfront.core.portal.models import Carousel, News, DocumentationArticle
 from coldfront.core.allocation.models import Allocation, AllocationUser
 from coldfront.core.grant.models import Grant
 from coldfront.core.portal.utils import (generate_allocations_chart_data,
@@ -169,3 +170,16 @@ def news(request, hash):
 def news_list(request):
     news = News.objects.filter(Q(expiry_date__gte=timezone.now()) | Q(expiry_date__isnull=True)).order_by('-publication_date')
     return render(request, 'portal/news_list.html', {'news_list': news})
+
+
+def documentation_article(request, pk):
+    article = DocumentationArticle.objects.get(pk=pk)
+    if not article.active:
+        return ObjectDoesNotExist()
+    root_articles = DocumentationArticle.objects.filter(parent=None, active=True).order_by('order')
+    return render(request, 'portal/documentation_article.html', {'article': article, 'root_articles': root_articles})
+
+def documentation(request):
+    article = DocumentationArticle.objects.get(title='Home')
+    root_articles = DocumentationArticle.objects.filter(parent=None, active=True).order_by('order')
+    return render(request, 'portal/documentation_article.html', {'article': article, 'root_articles': root_articles})

@@ -11,13 +11,16 @@
     <div class="navbar-collapse collapse" id="navbar-main">
       <ul class="navbar-nav">
         <li id="navbar-home" class="nav-item active">
- 	  <a class="nav-link" href="{% url 'home' %}">Home</a>
+ 	        <a class="nav-link" href="{% url 'home' %}">Home</a>
         </li>
         <li id="navbar-center-summary" class="nav-item">
           <a class="nav-link" href="{% url 'center-summary' %}">Center Summary</a>
         </li>
         <li id="navbar-news" class="nav-item">
           <a class="nav-link" href="{% url 'news-list' %}">News</a>
+        </li>
+        <li id="navbar-documentation" class="nav-item">
+          <a class="nav-link" href="{% url 'documentation' %}">Documentation</a>
         </li>
         {% if settings.CENTER_HELP_URL %}
           {% include 'common/navbar_help.html' %}

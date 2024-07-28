@@ -36,3 +36,27 @@ class News(models.Model):
     
     class Meta:
         verbose_name_plural = 'News'
+
+
+class DocumentationArticle(models.Model):
+    title = models.CharField(max_length=100)
+    body = MartorField()
+    publication_date = models.DateTimeField(default=timezone.now)
+    last_updated = models.DateTimeField(default=timezone.now)
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True)
+    order = models.IntegerField(default=0)
+    active = models.BooleanField(default=True)
+
+    @property
+    def children(self):
+        return DocumentationArticle.objects.filter(parent=self)
+
+    def save(self):
+        self.last_updated = timezone.now()
+        super().save()
+            
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name_plural = 'Documentation Articles'

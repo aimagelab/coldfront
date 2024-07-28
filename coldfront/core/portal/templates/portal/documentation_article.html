@@ -1,0 +1,81 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+{% load common_tags %}
+{% load humanize %}
+{% load martortags %}
+
+
+{% block title %}
+Documentation
+{% endblock %}
+
+{% block css %}
+<style>
+  .toc ul {
+    padding-left: 20px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2>{{ article.title }}</h2>
+<hr>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="card mb-3 border-primary">
+      <div class="card-header bg-primary text-white">
+        <i class="fas fa-newspaper" aria-hidden="true"></i> Documentation page
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-12">
+            <p>{{ article.body|safe_markdown }}</p>
+
+            <div class="row">
+              <div class="col-md-12">
+                <p class="text-muted">Last updated: {{ article.last_updated|date:"F j, Y" }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 toc">
+    <div class="card mb-3 border-primary">
+      <div class="card-header bg-primary text-white">
+        <i class="fas fa-newspaper" aria-hidden="true"></i> Table of Contents
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-12">
+            <ul>
+            {% for a in root_articles %}
+              <li><strong><a href="{% url 'documentation-article' a.pk %}">{{ a.title }}</a></strong>
+              {% if a.children %}
+                <ul>
+                  {% for aa in a.children %}
+                    <li><a href="{% url 'documentation-article' aa.pk %}">{{ aa.title }}</a></li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+              </li>
+            {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-documentation").addClass("active");
+  $('table').each(function(i){
+    $(this).addClass('table',i);
+  });
+</script>
+{% endblock %}

@@ -39,6 +39,25 @@ a :hover {
   color: #224b78;
 }
 
+h1 {
+  font-size: 2rem;
+}
+
+h2 {
+  font-size: 1.8rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+}
+
+h4 {
+  font-size: 1.2rem;
+}
+
+h5 {
+  font-size: 1.0rem;
+}
 
 .progress-bar {
   background-color: #224b78

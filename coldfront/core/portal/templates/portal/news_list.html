@@ -25,7 +25,7 @@ News
         <ul>
         {% for news in news_list %}
           <li>
-            <a href="{% url 'news' news.id %}">{{ news.title }}</a>
+            <a href="{% url 'news' news.hash %}">{{ news.title }}</a>
             <small class="text-muted">{{ news.publication_date|date:"F j, Y" }}</small>
           </li>
         {% endfor %}
@@ -34,5 +34,11 @@ News
     </div>
   </div>
 
-
+<script>
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-news").addClass("active");
+  $('table').each(function(i){
+    $(this).addClass('table',i);
+  });
+</script>
 {% endblock %}

@@ -161,13 +161,11 @@ def allocation_summary(request):
     return render(request, 'portal/allocation_summary.html', context)
 
 
-#@cache_page(60 * 15)
-def news(request, pk):
-    news = News.objects.get(pk=pk)
+def news(request, hash):
+    news = News.objects.get(hash=hash)
     return render(request, 'portal/news.html', {'news': news})
 
 
-#@cache_page(60 * 15)
 def news_list(request):
     news = News.objects.filter(Q(expiry_date__gte=timezone.now()) | Q(expiry_date__isnull=True)).order_by('-publication_date')
     return render(request, 'portal/news_list.html', {'news_list': news})

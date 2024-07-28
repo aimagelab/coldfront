@@ -1,5 +1,6 @@
 from django.db import models
 from martor.models import MartorField
+from django.utils import timezone
 
 class Carousel(models.Model):
     title = models.CharField(max_length=100)
@@ -16,10 +17,22 @@ class News(models.Model):
     title = models.CharField(max_length=100)
     body = MartorField()
     expiry_date = models.DateField(null=True, blank=True)
-    publication_date = models.DateTimeField(auto_now_add=True)
+    publication_date = models.DateTimeField(default=timezone.now)
+    hash = models.CharField(max_length=100, null=True, blank=True, unique=True, editable=False)
 
     def __str__(self):
         return self.title
+    
+    def save(self):
+        if self.hash is None:
+            # Generate a random hash (5 characters), until it is unique
+            import random
+            import string
+            hash = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
+            while News.objects.filter(hash=hash).exists():
+                hash = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
+            self.hash = hash
+        super().save()
     
     class Meta:
         verbose_name_plural = 'News'

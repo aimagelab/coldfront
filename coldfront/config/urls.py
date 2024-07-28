@@ -17,7 +17,7 @@ urlpatterns = [
     path('robots.txt', TemplateView.as_view(template_name='robots.txt', content_type='text/plain'), name="robots"),
     path('', portal_views.home, name='home'),
     path('center-summary', portal_views.center_summary, name='center-summary'),
-    path('news/<int:pk>', portal_views.news, name='news'),
+    path('news/<str:hash>', portal_views.news, name='news'),
     path('news', portal_views.news_list, name='news-list'),
     path('allocation-summary', portal_views.allocation_summary, name='allocation-summary'),
     path('allocation-by-fos', portal_views.allocation_by_fos, name='allocation-by-fos'),

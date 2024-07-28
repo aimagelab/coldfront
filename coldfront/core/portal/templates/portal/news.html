@@ -23,6 +23,12 @@ News
     <div class="row">
       <div class="col-md-12">
         <p>{{ news.body|safe_markdown }}</p>
+
+        <div class="row">
+          <div class="col-md-12">
+            <p class="text-muted">Published: {{ news.publication_date|date:"F j, Y" }}</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -35,4 +41,13 @@ News
     </div>
   </div>
 </div>
+
+<script>
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-news").addClass("active");
+  $('table').each(function(i){
+    $(this).addClass('table',i);
+  });
+
+</script>
 {% endblock %}

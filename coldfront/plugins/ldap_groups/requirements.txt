@@ -1,0 +1,2 @@
+ldap3==2.6
+dbus-python==1.2.8

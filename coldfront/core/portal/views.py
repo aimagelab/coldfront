@@ -6,7 +6,10 @@ from django.contrib.humanize.templatetags.humanize import intcomma
 from django.db.models import Count, Q, Sum
 from django.shortcuts import render
 from django.views.decorators.cache import cache_page
+from django.utils import timezone
+from django.core.exceptions import ObjectDoesNotExist
 
+from coldfront.core.portal.models import Carousel, News, DocumentationArticle
 from coldfront.core.allocation.models import Allocation, AllocationUser
 from coldfront.core.grant.models import Grant
 from coldfront.core.portal.utils import (generate_allocations_chart_data,
@@ -28,7 +31,7 @@ def home(request):
             (Q(status__name__in=['New', 'Active', ]) &
              Q(projectuser__user=request.user) &
              Q(projectuser__status__name__in=['Active', ]))
-        ).distinct().order_by('-created')[:5]
+        ).distinct().order_by('-created')
 
         allocation_list = Allocation.objects.filter(
             Q(status__name__in=['Active', 'New', 'Renewal Requested', ]) &
@@ -37,7 +40,7 @@ def home(request):
             Q(project__projectuser__status__name__in=['Active', ]) &
             Q(allocationuser__user=request.user) &
             Q(allocationuser__status__name__in=['Active', ])
-        ).distinct().order_by('-created')[:5]
+        ).distinct().order_by('end_date')
         context['project_list'] = project_list
         context['allocation_list'] = allocation_list
         try:
@@ -46,6 +49,10 @@ def home(request):
             pass
     else:
         template_name = 'portal/nonauthorized_home.html'
+        # Filter active carousels (with expiry date in the future or no expiry date)
+        context['carousel_list'] = Carousel.objects.filter(
+            Q(expiry_date__gte=timezone.now()) | Q(expiry_date=None)).order_by('-id')
+
 
     context['EXTRA_APPS'] = settings.INSTALLED_APPS
 
@@ -85,7 +92,7 @@ def center_summary(request):
     total_grants_by_agency_count = {
         ele['funding_agency__name']: ele['count'] for ele in total_grants_by_agency_count}
 
-    total_grants_by_agency = [['{}: ${} ({})'.format(
+    total_grants_by_agency = [['{}: {}€ ({})'.format(
         ele['funding_agency__name'],
         intcomma(int(ele['total_amount'])),
         total_grants_by_agency_count[ele['funding_agency__name']]
@@ -153,3 +160,26 @@ def allocation_summary(request):
     context['resources_chart_data'] = resources_chart_data
 
     return render(request, 'portal/allocation_summary.html', context)
+
+
+def news(request, hash):
+    news = News.objects.get(hash=hash)
+    return render(request, 'portal/news.html', {'news': news})
+
+
+def news_list(request):
+    news = News.objects.filter(Q(expiry_date__gte=timezone.now()) | Q(expiry_date__isnull=True)).order_by('-publication_date')
+    return render(request, 'portal/news_list.html', {'news_list': news})
+
+
+def documentation_article(request, pk):
+    article = DocumentationArticle.objects.get(pk=pk)
+    if not article.active:
+        return ObjectDoesNotExist()
+    root_articles = DocumentationArticle.objects.filter(parent=None, active=True).order_by('order')
+    return render(request, 'portal/documentation_article.html', {'article': article, 'root_articles': root_articles})
+
+def documentation(request):
+    article = DocumentationArticle.objects.get(title='Home')
+    root_articles = DocumentationArticle.objects.filter(parent=None, active=True).order_by('order')
+    return render(request, 'portal/documentation_article.html', {'article': article, 'root_articles': root_articles})

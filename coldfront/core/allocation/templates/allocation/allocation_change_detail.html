@@ -77,6 +77,10 @@ Allocation Change Detail
                   <span class="badge badge-warning"><i class="far fa-clock" aria-hidden="true"></i>
                     Expires in {{allocation_change.allocation.expires_in}} day{{allocation_change.allocation.expires_in|pluralize}} - Not renewable
                   </span>
+                  {% elif allocation_change.allocation.status.name == 'Approved' and allocation_change.allocation.expires_in <= 60 and allocation_change.allocation.expires_in >= 0 %}
+                  <span class="badge badge-warning"><i class="far fa-clock" aria-hidden="true"></i>
+                    Expires in {{allocation_change.allocation.expires_in}} day{{allocation_change.allocation.expires_in|pluralize}}
+                  </span>
                   {% endif %}
                 </td>
             </tr>

@@ -15,6 +15,7 @@ coldfront_configs = [
 # ColdFront plugin settings
 plugin_configs = {
     'PLUGIN_SLURM': 'plugins/slurm.py',
+    'PLUGIN_LDAP_GROUPS': 'plugins/ldap_groups.py',
     'PLUGIN_IQUOTA': 'plugins/iquota.py',
     'PLUGIN_FREEIPA': 'plugins/freeipa.py',
     'PLUGIN_SYSMON': 'plugins/system_montior.py',
@@ -41,6 +42,9 @@ local_configs = [
     # Local settings relative to coldfront project root
     PROJECT_ROOT('local_settings.py')
 ]
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = '/srv/coldfront/media/'
 
 if ENV.str('COLDFRONT_CONFIG', default='') != '':
     # Local settings from path specified via environment variable

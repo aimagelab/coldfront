@@ -1,0 +1,44 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+{% load common_tags %}
+{% load humanize %}
+{% load martortags %}
+
+
+{% block title %}
+News
+{% endblock %}
+
+
+{% block content %}
+<h2>News</h2>
+<hr>
+
+<div class="card mb-3 border-primary">
+  <div class="card-header bg-primary text-white">
+    <i class="fas fa-newspaper" aria-hidden="true"></i> News
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-12">
+        <ul>
+        {% for news in news_list %}
+          <li>
+            <a href="{% url 'news' news.hash %}">{{ news.title }}</a>
+            <small class="text-muted">{{ news.publication_date|date:"F j, Y" }}</small>
+          </li>
+        {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+<script>
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-news").addClass("active");
+  $('table').each(function(i){
+    $(this).addClass('table',i);
+  });
+</script>
+{% endblock %}

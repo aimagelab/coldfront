@@ -24,6 +24,7 @@ Log In
       <h2 class="h5"><i class="fas fa-lock" aria-hidden="true"></i> Log In</h2>
     </div>
     <div class="card-body">
+      <p><i>Log-in using your {% settings_value 'CENTER_NAME' %} credentials.</i></p>
       {% include "user/login_form.html" %} 
       {% if 'mozilla_django_oidc' in EXTRA_APPS %}
         <hr/>

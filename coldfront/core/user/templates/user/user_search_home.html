@@ -6,7 +6,7 @@
 {% block content %}
 <div class="row">
   <div class="col">
-    <form method="post" action="/search-ldap" id="post-form">
+    <form method="post" action="/coldfront/search-ldap" id="post-form">
     {% csrf_token %}
     {{ user_search_form|crispy }}
     <button id="search-button" type="submit" class="btn btn-success btn-block"><i class="fas fa-search" aria-hidden="true"></i> Search</button>
@@ -50,7 +50,7 @@
     }
 
     $.ajax({
-        url : "/user/user-search-results/", // the endpoint
+        url : "/coldfront/user/user-search-results/", // the endpoint
         type : "POST", // http method
         data : { 
           q : q, 

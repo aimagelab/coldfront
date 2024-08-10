@@ -38,6 +38,7 @@ Center Summary
 <!-- End Research Outputs -->
 
 <!-- Start  Grants -->
+{% comment %}
 <div class="card mb-3 border-primary">
   <div class="card-header bg-primary text-white">
     <i class="fas fa-trophy" aria-hidden="true"></i> User Grants Summary
@@ -45,12 +46,13 @@ Center Summary
   <div class="card-body">
     <div id="chartGrants"></div>
     <hr>
-    <strong> Grants Total:</strong> ${{grants_total}} <br>
-    <strong> Grants Total PI Only:</strong> ${{grants_total_pi_only}} <br>
-    <strong> Grants Total CoPI Only:</strong> ${{grants_total_copi_only}} <br>
-    <strong> Grants Total Senior Personnel Only:</strong> ${{grants_total_sp_only}}
+    <strong> Grants Total:</strong> {{grants_total}}€ <br>
+    <strong> Grants Total PI Only:</strong> {{grants_total_pi_only}}€ <br>
+    <strong> Grants Total CoPI Only:</strong> {{grants_total_copi_only}}€ <br>
+    <strong> Grants Total Senior Personnel Only:</strong> {{grants_total_sp_only}}€
   </div>
 </div>
+{% endcomment %}
 <!-- End Grants -->
 
 <!-- Start Allocation by Field of Science -->
@@ -151,7 +153,7 @@ Center Summary
     $.ajax({
       headers: { 'X-CSRFToken': getCookie('csrftoken') },
       type: "GET",
-      url: "/allocation-summary",
+      url: "/coldfront/allocation-summary",
       success: function (data) {
         $('#allocation-summary').html(data);
       }
@@ -162,7 +164,7 @@ Center Summary
     $.ajax({
       headers: { 'X-CSRFToken': getCookie('csrftoken') },
       type: "GET",
-      url: "/allocation-by-fos",
+      url: "/coldfront/allocation-by-fos",
       success: function (data) {
         $('#allocation-by-fos').html(data);
         $('#fos-table').DataTable({

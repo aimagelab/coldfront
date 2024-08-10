@@ -223,7 +223,7 @@ class Resource(TimeStampedModel):
         return None
             
     def __str__(self):
-        return '%s (%s)' % (self.name, self.resource_type.name)
+        return '%s' % self.name
 
     def natural_key(self):
         return [self.name]

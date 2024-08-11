@@ -14,6 +14,8 @@ EMAIL_SUBJECT_PREFIX = import_from_settings('EMAIL_SUBJECT_PREFIX')
 EMAIL_DEVELOPMENT_EMAIL_LIST = import_from_settings('EMAIL_DEVELOPMENT_EMAIL_LIST')
 EMAIL_SENDER = import_from_settings('EMAIL_SENDER')
 EMAIL_TICKET_SYSTEM_ADDRESS = import_from_settings('EMAIL_TICKET_SYSTEM_ADDRESS')
+EMAIL_ADMIN_LIST = import_from_settings('EMAIL_ADMIN_LIST')
+EMAIL_BLACKLIST = import_from_settings('EMAIL_BLACKLIST')
 EMAIL_OPT_OUT_INSTRUCTION_URL = import_from_settings('EMAIL_OPT_OUT_INSTRUCTION_URL')
 EMAIL_SIGNATURE = import_from_settings('EMAIL_SIGNATURE')
 EMAIL_CENTER_NAME = import_from_settings('CENTER_NAME')
@@ -42,6 +44,10 @@ def send_email(subject, body, sender, receiver_list, cc=[]):
 
     if cc and settings.DEBUG:
         cc = EMAIL_DEVELOPMENT_EMAIL_LIST
+
+    # Remove blacklisted emails
+    receiver_list = [email for email in receiver_list if email not in EMAIL_BLACKLIST]
+    cc = [email for email in cc if email not in EMAIL_BLACKLIST]
 
     try:
         if cc:
@@ -87,7 +93,7 @@ def build_link(url_path, domain_url=''):
 def send_admin_email_template(subject, template_name, template_context):
     """Helper function for sending admin emails using a template
     """
-    send_email_template(subject, template_name, template_context, EMAIL_SENDER, [EMAIL_TICKET_SYSTEM_ADDRESS, ])
+    send_email_template(subject, template_name, template_context, EMAIL_SENDER, EMAIL_ADMIN_LIST)
 
 def send_allocation_admin_email(allocation_obj, subject, template_name, url_path='', domain_url=''):
     """Send allocation admin emails

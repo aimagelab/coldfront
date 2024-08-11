@@ -123,6 +123,14 @@ class SlurmCluster(SlurmBase):
             for allocation in r.allocation_set.filter(status__name__in=['Active', 'Renewal Requested']):
                 cluster.add_allocation(allocation, specs=partition_specs, user_specs=partition_user_specs)
 
+        children = Resource.objects.filter(parent_resource_id=resource.id, resource_type__name='Cluster QoS')
+        for r in children:
+            partition_specs = r.get_attribute_list(SLURM_SPECS_ATTRIBUTE_NAME)
+            partition_user_specs = r.get_attribute_list(SLURM_USER_SPECS_ATTRIBUTE_NAME)
+            for allocation in r.allocation_set.filter(status__name__in=['Active', 'Renewal Requested']):
+                cluster.add_allocation(allocation, specs=partition_specs, user_specs=partition_user_specs)
+        
+
         return cluster
 
     def add_allocation(self, allocation, specs=None, user_specs=None):

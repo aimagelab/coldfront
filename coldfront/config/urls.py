@@ -20,7 +20,7 @@ urlpatterns = [
     path('news/<str:hash>', portal_views.news, name='news'),
     path('news', portal_views.news_list, name='news-list'),
     path('documentation', portal_views.documentation, name='documentation'),
-    path('documentation/<int:pk>', portal_views.documentation_article, name='documentation-article'),
+    path('documentation/<str:hash>', portal_views.documentation_article, name='documentation-article'),
     path('allocation-summary', portal_views.allocation_summary, name='allocation-summary'),
     path('allocation-by-fos', portal_views.allocation_by_fos, name='allocation-by-fos'),
     path('user/', include('coldfront.core.user.urls')),

@@ -46,12 +46,22 @@ class DocumentationArticle(models.Model):
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True)
     order = models.IntegerField(default=0)
     active = models.BooleanField(default=True)
+    hash = models.CharField(max_length=100, null=True, blank=True, unique=True, editable=False)
 
     @property
     def children(self):
         return DocumentationArticle.objects.filter(parent=self)
 
     def save(self):
+        if self.hash is None:
+            # Generate a random hash (5 characters), until it is unique
+            import random
+            import string
+            hash = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
+            while News.objects.filter(hash=hash).exists():
+                hash = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
+            self.hash = hash
+
         self.last_updated = timezone.now()
         super().save()
             

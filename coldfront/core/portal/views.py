@@ -172,8 +172,8 @@ def news_list(request):
     return render(request, 'portal/news_list.html', {'news_list': news})
 
 
-def documentation_article(request, pk):
-    article = DocumentationArticle.objects.get(pk=pk)
+def documentation_article(request, hash):
+    article = DocumentationArticle.objects.get(hash=hash)
     if not article.active:
         return ObjectDoesNotExist()
     root_articles = DocumentationArticle.objects.filter(parent=None, active=True).order_by('order')

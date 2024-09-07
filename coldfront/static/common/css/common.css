@@ -32,11 +32,11 @@ main {
 }
 
 a {
-  color: #224b78;
+  color: rgb(23, 90, 142);
 }
 
 a :hover {
-  color: #224b78;
+  color: rgb(23, 90, 142);
 }
 
 h1 {
@@ -60,16 +60,16 @@ h5 {
 }
 
 .progress-bar {
-  background-color: #224b78
+  background-color: #0171cf
 }
 
 .page-item.active .page-link {
-    background-color: #224b78;
-    border-color: #224b78;
+    background-color: rgb(23, 90, 142);
+    border-color: rgb(23, 90, 142);
 }
 
 .page-link { 
-    color: #224b78;
+    color: rgb(23, 90, 142);
 }
 
 .navbar-custom {
@@ -88,24 +88,38 @@ h5 {
     background: #E2E2E2;
 }
 
+.navbar-dark .navbar-nav .nav-link {
+    color: #fff;
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+    color: #fff;
+}
+
 .blue-nav-bar-side {
-  background-color: #224b78;
+  background-color: #0171cf;
   margin-right: 0px;
   margin-left: 0px;
   padding-bottom: 3px;
 }
 
+#brand {
+  background-color: #0171cf !important;
+  color: #FFFFFF !important;
+  padding-top: 1rem;
+}
+
 .bg-primary {
-  background-color: #224b78 !important;
+  background-color: #0171cf !important;
 }
 
 .text-primary {
-  color: #224b78 !important;
+  color: rgb(23, 90, 142) !important;
 
 }
 
 .border-primary {
-  border-color: #224b78 !important;
+  border-color: rgb(23, 90, 142) !important;
 }
 
 
@@ -124,9 +138,10 @@ h5 {
   width: 100%;
   /* Set the fixed height of the footer here */
   height: 250px;
-  background-color: #224b78;
+  background-color: #0171cf;
   color: #ffffff !important;
   padding-top: 15px;
+  border-top: 2px solid #0c2340;
 }
 
 #footer a {
@@ -172,13 +187,13 @@ body > main > div > div.card.border-primary > div.card-body > form > div.alert.a
 
 
 .btn-primary {
-    background: #224b78;
-    border-color: #224b78;
+    background: rgb(23, 90, 142);
+    border-color: rgb(23, 90, 142);
 }
 
 .btn-primary:hover {
-    background: #224b78;
-    border-color: #224b78;
+    background: rgb(23, 90, 142);
+    border-color: rgb(23, 90, 142);
 }
 
 .hijacked-warning {

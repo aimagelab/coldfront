@@ -1,6 +1,6 @@
 Dear {{center_name}} user,
 
-Your allocation for {{resource}} has been revoked.
+Your allocation for {{resource}} inside the {{project}} project has been revoked.
 
 Please login to view a message from the system administrators: 
 

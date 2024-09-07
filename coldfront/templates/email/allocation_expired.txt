@@ -1,6 +1,6 @@
 Dear {{center_name}} user,
 
-Your access to {{center_name}} resources has expired. Any accounts under these allocation(s) are now unable to
+Your access to one or more {{center_name}} resources has expired. Any accounts under these allocation(s) are now unable to
 access the associated resource. If you wish to continue using them, the group owners responsible for the following project(s) must create a new
 allocation request(s). Below is a list of links to your project(s) containing at least one expired allocation: 
 {% for project_key, project_url in project_dict.items %}

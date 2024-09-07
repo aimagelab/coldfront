@@ -1,7 +1,7 @@
 Dear {{center_name}} user,
 
-Your allocation request for {{resource}} has been activated. You now have
-access to this resource.
+Your allocation request for {{resource}} inside the {{project}} project has been 
+activated. You now have access to this resource.
 
 To view your allocations information, please go to:
 

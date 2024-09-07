@@ -125,6 +125,7 @@ def send_allocation_customer_email(allocation_obj, subject, template_name, url_p
     url = build_link(url_path, domain_url=domain_url)
     ctx = email_template_context()
     ctx['resource'] = allocation_obj.get_parent_resource
+    ctx['project'] = allocation_obj.project.title
     ctx['url'] = url
 
     allocation_users = allocation_obj.allocationuser_set.exclude(status__name__in=['Removed', 'Error'])

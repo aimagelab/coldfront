@@ -1,6 +1,7 @@
 Dear {{center_name}} user,
 
-Your allocation change request for {{resource}} has been denied.
+Your allocation change request for {{resource}} inside the {{project}} project 
+has been denied.
 
 Please login to view a message from the system administrators pertaining to
 your allocation change request: 

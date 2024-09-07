@@ -30,7 +30,11 @@
           <div class="col-md-12">
             <ul>
             {% for a in root_articles %}
-              <li><strong><a href="{% url 'documentation-article' a.hash %}">{{ a.title }}</a></strong>
+              {% if a.is_empty %}
+                <li><strong>{{ a.title }}</strong> 
+              {% else %}
+                <li><strong><a href="{% url 'documentation-article' a.hash %}">{{ a.title }}</a></strong>
+              {% endif %}
               {% if a.children %}
                 <ul>
                   {% for aa in a.children %}

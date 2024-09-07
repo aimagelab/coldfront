@@ -40,7 +40,7 @@ class News(models.Model):
 
 class DocumentationArticle(models.Model):
     title = models.CharField(max_length=100)
-    body = MartorField()
+    body = MartorField(blank=True, null=True)
     publication_date = models.DateTimeField(default=timezone.now)
     last_updated = models.DateTimeField(default=timezone.now)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True)
@@ -51,6 +51,10 @@ class DocumentationArticle(models.Model):
     @property
     def children(self):
         return DocumentationArticle.objects.filter(parent=self)
+
+    @property
+    def is_empty(self):
+        return len(self.body) == 0
 
     def save(self):
         if self.hash is None:

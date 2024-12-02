@@ -1,4 +1,5 @@
 import datetime
+from django.utils import timezone
 
 from coldfront.core.allocation.models import Allocation
 
@@ -83,7 +84,7 @@ def generate_allocations_chart_data():
     new_count = Allocation.objects.filter(status__name='New').count()
     renewal_requested_count = Allocation.objects.filter(status__name='Renewal Requested').count()
 
-    now = datetime.datetime.now()
+    now = timezone.now()
     start_time = datetime.date(now.year - 1, 1, 1)
     expired_count = Allocation.objects.filter(
         status__name='Expired', end_date__gte=start_time).count()

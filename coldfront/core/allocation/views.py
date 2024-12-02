@@ -1,4 +1,3 @@
-import datetime
 import logging
 from datetime import date
 import json
@@ -20,6 +19,7 @@ from django.utils.html import format_html, mark_safe
 from django.views import View
 from django.views.generic import ListView, TemplateView
 from django.views.generic.edit import CreateView, FormView, UpdateView
+from django.utils import timezone
 
 from coldfront.core.allocation.forms import (AllocationAccountForm,
                                              AllocationAddUserForm,
@@ -216,9 +216,9 @@ class AllocationDetailView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
 
         if old_status != 'Active' == allocation_obj.status.name:
             if not allocation_obj.start_date:
-                allocation_obj.start_date = datetime.datetime.now()
+                allocation_obj.start_date = timezone.now()
             if 'approve' in action or not allocation_obj.end_date:
-                allocation_obj.end_date = datetime.datetime.now() + relativedelta(days=ALLOCATION_DEFAULT_ALLOCATION_LENGTH)
+                allocation_obj.end_date = timezone.now() + relativedelta(days=ALLOCATION_DEFAULT_ALLOCATION_LENGTH)
 
             allocation_obj.save()
 

@@ -17,6 +17,7 @@ from coldfront.core.project.models import Project, ProjectPermission
 from coldfront.core.resource.models import Resource
 from coldfront.core.utils.common import import_from_settings
 import coldfront.core.attribute_expansion as attribute_expansion
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,7 @@ class Allocation(TimeStampedModel):
             if not self.end_date:
                 raise ValidationError('You have to set the end date.')
 
-            if self.end_date > datetime.datetime.now().date():
+            if self.end_date > timezone.now().date():
                 raise ValidationError(
                     'End date cannot be greater than today.')
 
@@ -139,7 +140,7 @@ class Allocation(TimeStampedModel):
             int: the number of days until the allocation expires
         """
 
-        return (self.end_date - datetime.date.today()).days
+        return (self.end_date - timezone.now().date()).days
 
     @property
     def get_information(self):

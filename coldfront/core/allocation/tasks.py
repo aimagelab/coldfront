@@ -7,6 +7,7 @@ from coldfront.core.allocation.models import (Allocation,
 from coldfront.core.user.models import User
 from coldfront.core.utils.common import import_from_settings
 from coldfront.core.utils.mail import send_email_template
+from django.utils import timezone
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ def update_statuses():
     expired_status_choice = AllocationStatusChoice.objects.get(
         name='Expired')
     allocations_to_expire = Allocation.objects.filter(
-        status__name__in=['Active','Payment Pending','Payment Requested', 'Unpaid',], end_date__lt=datetime.datetime.now().date())
+        status__name__in=['Active','Payment Pending','Payment Requested', 'Unpaid',], end_date__lt=timezone.now().date())
     for sub_obj in allocations_to_expire:
         sub_obj.status = expired_status_choice
         sub_obj.save()
@@ -48,7 +49,7 @@ def send_expiry_emails():
         email_receiver_list = []
         for days_remaining in sorted(set(EMAIL_ALLOCATION_EXPIRING_NOTIFICATION_DAYS)):
 
-            expring_in_days = (datetime.datetime.today(
+            expring_in_days = (timezone.now().date(
                 ) + datetime.timedelta(days=days_remaining)).date()
                        
             for allocationuser in user.allocationuser_set.all():
@@ -121,7 +122,7 @@ def send_expiry_emails():
         allocationdict = {}
         email_receiver_list = []
         
-        expring_in_days = (datetime.datetime.today() + datetime.timedelta(days=-1)).date()
+        expring_in_days = (timezone.now().date() + datetime.timedelta(days=-1)).date()
                 
         for allocationuser in user.allocationuser_set.all():
             allocation = allocationuser.allocation

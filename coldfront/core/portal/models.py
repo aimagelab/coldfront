@@ -1,8 +1,10 @@
+# SPDX-FileCopyrightText: (C) ColdFront Authors
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
 from django.db import models
 from martor.models import MartorField
 from django.utils import timezone
 from django.db.models import Q
-from django.conf import settings
 
 
 class Carousel(models.Model):

@@ -93,12 +93,17 @@ The following settings are ColdFront specific settings related to the core appli
 | ALLOCATION_CHANGE_REQUEST_EXTENSION_DAYS | List of days users can request extensions in an allocation change request. Default 30,60,90 |
 | ALLOCATION_ACCOUNT_ENABLED             | Allow user to select account name for allocation. Default False |
 | ALLOCATION_RESOURCE_ORDERING           | Controls the ordering of parent resources for an allocation (if allocation has multiple resources).  Should be a list of field names suitable for Django QuerySet order_by method.  Default is ['-is_allocatable', 'name']; i.e. prefer Resources with is_allocatable field set, ordered by name of the Resource.|
+| ALLOCATION_EULA_ENABLE                 | Enable or disable requiring users to agree to EULA on allocations. Only applies to allocations using a resource with a defined 'eula' attribute. Default False|
 | INVOICE_ENABLED                        | Enable or disable invoices. Default True       |
 | ONDEMAND_URL                           | The URL to your Open OnDemand installation     |
 | LOGIN_FAIL_MESSAGE                     | Custom message when user fails to login. Here you can paint a custom link to your user account portal |
 | ENABLE_SU                              | Enable administrators to login as other users. Default True |
-
-
+| RESEARCH_OUTPUT_ENABLE                 | Enable or disable research outputs. Default True |
+| GRANT_ENABLE                           | Enable or disable grants. Default True           |
+| PUBLICATION_ENABLE                     | Enable or disable publications. Default True     |
+| PROJECT_CODE                                 | Specifies a custom internal project identifier. Default False, provide string value to enable.|  
+| PROJECT_CODE_PADDING                         | Defines a optional padding value to be added before the Primary Key section of PROJECT_CODE. Default False, provide integer value to enable.|
+| PROJECT_INSTITUTION_EMAIL_MAP                | Defines a dictionary where PI domain email addresses are keys and their corresponding institutions are values. Default is False, provide key-value pairs to enable this feature.|  
 ### Database settings
 
 The following settings configure the database server to use, if not set will default to using SQLite:
@@ -140,9 +145,14 @@ disabled:
 | EMAIL_SIGNATURE                 | Email signature to add to outgoing emails |
 | EMAIL_ALLOCATION_EXPIRING_NOTIFICATION_DAYS   | List of days to send email notifications for expiring allocations. Default 7,14,30 |
 | EMAIL_ADMINS_ON_ALLOCATION_EXPIRE | Setting this to True will send a daily email notification to administrators with a list of allocations that have expired that day. |
+| EMAIL_ALLOCATION_EULA_REMINDERS | Enable/Disable EULA reminders. Default False |
+| EMAIL_ALLOCATION_EULA_IGNORE_OPT_OUT | Ignore user email settings and always send EULA related emails. Default False |
+| EMAIL_ALLOCATION_EULA_CONFIRMATIONS | Enable/Disable email notifications when a EULA is accepted or declined. Default False |
+| EMAIL_ALLOCATION_EULA_CONFIRMATIONS_CC_MANAGERS | CC project managers on eula notification emails (requires EMAIL_ALLOCATION_EULA_CONFIRMATIONS to be enabled). Default False |
+| EMAIL_ALLOCATION_EULA_INCLUDE_ACCEPTED_EULA | Include copy of EULA in email notifications for accepted EULAs. Default False |
 
 ### Plugin settings
-For more info on [ColdFront plugins](../../plugin/existing_plugins/) (Django apps)
+For more info on [ColdFront plugins](plugin/existing_plugins.md) (Django apps)
 
 #### LDAP Auth
 
@@ -151,6 +161,10 @@ For more info on [ColdFront plugins](../../plugin/existing_plugins/) (Django app
     ```
     $ pip install ldap3 django_auth_ldap
     ```
+
+    This uses `django_auth_ldap` therefore ldaps cert paths will be taken from
+    global OS ldap config, `/etc/{ldap,openldap}/ldap.conf` and within `TLS_CACERT`
+
 
 | Name                        | Description                             |
 | :---------------------------|:----------------------------------------|
@@ -161,6 +175,7 @@ For more info on [ColdFront plugins](../../plugin/existing_plugins/) (Django app
 | AUTH_LDAP_BIND_PASSWORD     | The password to use AUTH_LDAP_BIND_DN   |
 | AUTH_LDAP_USER_SEARCH_BASE  | User search base dn                     |
 | AUTH_LDAP_GROUP_SEARCH_BASE | Group search base dn                    |
+| AUTH_COLDFRONT_LDAP_SEARCH_SCOPE | The search scope for Coldfront authentication. Options: SUBTREE or default (ONELEVEL)   |
 | AUTH_LDAP_MIRROR_GROUPS     | Enable/disable mirroring of groups. Default True  |
 | AUTH_LDAP_BIND_AS_AUTHENTICATING_USER     | Authentication will leave the LDAP connection bound as the authenticating user, rather than forcing it to re-bind. Default False    |
 
@@ -171,6 +186,11 @@ For more info on [ColdFront plugins](../../plugin/existing_plugins/) (Django app
     ```
     $ pip install mozilla_django_oidc
     ```
+!!! warning "SESSION\_COOKIE\_SAMESITE"
+
+    mozilla_django_oidc uses cookies to store state in an anonymous session during the
+    authentication process. You must use `SESSION_COOKIE_SAMESITE="Lax"` in your
+    settings for authentication to work correctly.
 
 | Name                           | Description                          |
 | :------------------------------|:-------------------------------------|
@@ -257,6 +277,7 @@ exist in your backend LDAP to show up in the ColdFront user search.
 | LDAP_USER_SEARCH_PRIV_KEY_FILE  | Path to the private key file.       |
 | LDAP_USER_SEARCH_CERT_FILE  | Path to the certificate file.           |
 | LDAP_USER_SEARCH_CACERT_FILE  | Path to the CA cert file.             |
+| LDAP_USER_SEARCH_CERT_VALIDATE_MODE | Whether to require/validate certs.  If 'required', certs are required and validated.  If 'optional', certs are optional but validated if provided.  If 'none' (the default) certs are ignored. |
 
 ## Advanced Configuration
 

@@ -99,15 +99,16 @@ class Project(TimeStampedModel):
     # - Industrial research project (i.e. "conto terzi") (up to 100.000 standard hours)
     # - Medium research project, connected to a national competitive project (up to 50.000 standard hours)
     # - PhD student support project (up to 20.000 standard hours per year)
-    # - MSc thesis project (up to 10.000 standard hours)
-    # - Support to teaching, including group projects (up to 25.000 standard hours)
+    # - MSc thesis project (up to 2.000 GPU hours)
+    # - Support to teaching, including group projects (up to 5.000 GPU hours)
     PROJECT_TYPE_CHOICES = [
-        ('B', 'Large research project, connected to a national or international competitive project (up to 100.000 standard hours)'),
-        ('BI', 'Industrial research project (i.e. "conto terzi") (up to 100.000 standard hours)'),
-        ('C', 'Medium research project, connected to a national competitive project (up to 50.000 standard hours)'),
-        ('D', 'PhD student support project (up to 20.000 standard hours per year)'),
-        ('E', 'MSc thesis project (up to 10.000 standard hours)'),
-        ('F', 'Support to teaching, including group projects (up to 25.000 standard hours)'),
+        ('B', 'Large research project, connected to an european or international competitive project (up to 50.000 GPU hours per year, same size of an ISCRA AI allocation)'),
+        ('BI', 'Large industrial research project (up to 50.000 GPU hours per year, same size of an ISCRA AI allocation)'),
+        ('C', 'Medium research project, connected to a national competitive project or a small industrial research project (up to 10.000 GPU hours per year, same size of an ISCRA C allocation)'),
+        ('T', 'Blue sky project, not connected to a competitive project (up to 5.000 GPU hours)'),
+        ('D', 'PhD student support project (up to 5.000 GPU hours per year)'),
+        ('F', 'Support to teaching, including group projects (up to 5.000 GPU hours)'),
+        ('E', 'MSc thesis project (up to 2.000 GPU hours)'),
     ]
     project_type = models.CharField(max_length=2, choices=PROJECT_TYPE_CHOICES, null=True, blank=True)
 

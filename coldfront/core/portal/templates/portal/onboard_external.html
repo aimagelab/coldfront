@@ -1,0 +1,70 @@
+{% extends "common/base.html" %}
+{% load static %}
+{% block content %}
+<h1>External Onboarding - Request Access</h1>
+<p class="text-muted">Use this form if you do <strong>not</strong> have a UNIMORE institutional account.</p>
+<div class="alert alert-warning">
+  Manual approval required. Provide accurate information. An identity document upload is mandatory.
+</div>
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  <div class="row">
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Given name <span class="text-danger">*</span></label>
+      <input type="text" name="given_name" class="form-control" value="{{ form.given_name.value|default_if_none:'' }}" required>
+    </div>
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Surname <span class="text-danger">*</span></label>
+      <input type="text" name="surname" class="form-control" value="{{ form.surname.value|default_if_none:'' }}" required>
+    </div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Email <span class="text-danger">*</span></label>
+    <input type="email" name="email" class="form-control" value="{{ form.email.value|default_if_none:'' }}" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Role <span class="text-danger">*</span></label>
+    {{ form.role }}
+  </div>
+  <div class="mb-3" id="course-wrapper">
+    <label class="form-label">Course (only for "Student from a course")</label>
+    {{ form.course_project }}
+    {% if not has_courses %}
+      <div class="text-warning small">No course projects are currently available.</div>
+    {% endif %}
+  </div>
+  <div class="mb-3" id="exp-wrapper">
+    <label class="form-label">Position / Contract Expiration Date</label>
+    {{ form.expiration_date }}
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Identity Document (PDF/JPG/PNG) <span class="text-danger">*</span></label>
+    {{ form.identity_document }}
+    {% if form.identity_document.errors %}<div class="text-danger small">{{ form.identity_document.errors|join:", " }}</div>{% endif %}
+    <div class="form-text">Upload a government-issued ID or equivalent proof of identity (max 10MB).</div>
+  </div>
+  <input type="hidden" name="is_external" value="1" />
+  <button class="btn btn-primary" type="submit">Submit Request</button>
+  <a href="{% url 'onboard' %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}
+{% block javascript %}
+{{ block.super }}
+<script>
+(function(){
+  const roleSelect = document.getElementById('id_role');
+  const expWrapper = document.getElementById('exp-wrapper');
+  const courseWrapper = document.getElementById('course-wrapper');
+  const expRequiredRoles = new Set([
+    'PhD Student','Research grant','Research contract','Guest','Structured personnel'
+  ]);
+  function toggle(){
+    const role = roleSelect.value;
+    expWrapper.style.display = expRequiredRoles.has(role) ? '' : 'none';
+    courseWrapper.style.display = (role === 'Student from a course') ? '' : 'none';
+  }
+  roleSelect.addEventListener('change', toggle);
+  toggle();
+})();
+</script>
+{% endblock %}

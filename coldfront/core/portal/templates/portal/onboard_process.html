@@ -1,0 +1,116 @@
+{% extends "common/base.html" %}
+{% load static %}
+{% block content %}
+<h1>Automatic Onboarding - Confirm Details</h1>
+<p class="text-muted">We received the following data from UNIMORE SSO.</p>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-3">Given name</dt><dd class="col-sm-9">{{ given_name }}</dd>
+      <dt class="col-sm-3">Surname</dt><dd class="col-sm-9">{{ surname }}</dd>
+      <dt class="col-sm-3">Email</dt><dd class="col-sm-9">{{ email }}</dd>
+      <dt class="col-sm-3">UNIMORE ID</dt><dd class="col-sm-9">{{ unimore_id }}</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  If any of the data above is incorrect, please cancel this request and contact support via the ticket system before proceeding.
+  <a href="https://ailb-web.ing.unimore.it/tickets/" target="_blank" rel="noopener">Open support ticket</a>.
+</div>
+
+<div class="mb-4">
+  <h2 class="h5">Before you continue</h2>
+  <ul class="small mb-2">
+    <li>Select the role that best matches your current academic or contractual status.</li>
+    <li>If you are a student attending a specific course that uses AImageLab-SRV, choose "Student from a course" and then select the course.</li>
+    <li>If you are a thesis student (working on your thesis with a supervisor), choose "Student doing a thesis".</li>
+    <li>PhD students, research grant holders, research contract staff, guests and structured personnel must provide the contract/position end (expiration) date.</li>
+    <li>If you do not know the exact expiration date, use the official one from your letter/appointment; you can request an update later.</li>
+  </ul>
+  <p class="small text-muted mb-0">
+    Your request will remain Pending until reviewed by an administrator. You will be notified after approval or rejection.
+  </p>
+</div>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="mb-3">
+    <label for="{{ form.role.id_for_label }}" class="form-label">
+      Role <span class="text-danger">*</span>
+    </label>
+    {{ form.role }}
+    <div class="form-text">
+      Choose exactly one.
+    </div>
+    {% if form.role.errors %}<div class="text-danger small">{{ form.role.errors|join:", " }}</div>{% endif %}
+  </div>
+
+  <div class="mb-3" id="course-wrapper">
+    <label for="{{ form.course_project.id_for_label }}" class="form-label">Course (only for "Student from a course")</label>
+    {{ form.course_project }}
+    <div class="form-text">
+      This list contains teaching-support projects already active on the cluster. If your course is missing, cancel and open a support ticket.
+    </div>
+    {% if form.course_project.errors %}<div class="text-danger small">{{ form.course_project.errors|join:", " }}</div>{% endif %}
+    {% if not has_courses %}
+      <div class="text-warning small">No course projects are currently available.</div>
+    {% endif %}
+  </div>
+
+  <div class="mb-3" id="exp-wrapper">
+    <label for="{{ form.expiration_date.id_for_label }}" class="form-label">
+      Position / Contract Expiration Date
+    </label>
+    {{ form.expiration_date }}
+    <div class="form-text">
+      Required for PhD, research grant/contract, guest and structured personnel. Use the official end date. If renewed later, you must submit an update request.
+    </div>
+    {% if form.expiration_date.errors %}<div class="text-danger small">{{ form.expiration_date.errors|join:", " }}</div>{% endif %}
+  </div>
+
+  <button class="btn btn-primary" type="submit">Submit Request</button>
+  <a href="{% url 'onboard' %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<script>
+(function(){
+  const roleSelect = document.getElementById("id_role");
+  const expWrapper = document.getElementById("exp-wrapper");
+  const courseWrapper = document.getElementById("course-wrapper");
+  const expRequiredRoles = new Set([
+    "PhD Student",
+    "Research grant",
+    "Research contract",
+    "Guest",
+    "Structured personnel"
+  ]);
+  function toggleFields(){
+    if(!roleSelect) return;
+    const role = roleSelect.value;
+    // Expiration
+    if(expRequiredRoles.has(role)){
+      expWrapper.style.display = '';
+    } else {
+      expWrapper.style.display = 'none';
+      const expInput = document.getElementById("id_expiration_date");
+      if(expInput) expInput.value = '';
+    }
+    // Course
+    if(role === "Student from a course"){
+      courseWrapper.style.display = '';
+    } else {
+      courseWrapper.style.display = 'none';
+      const courseSelect = document.getElementById("id_course_project");
+      if(courseSelect) courseSelect.selectedIndex = 0;
+    }
+  }
+  roleSelect?.addEventListener('change', toggleFields);
+  toggleFields();
+})();
+</script>
+{% endblock %}

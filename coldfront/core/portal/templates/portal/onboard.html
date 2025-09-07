@@ -1,0 +1,113 @@
+{% extends "common/base.html" %}
+{% load common_tags %}
+{% load static %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <h1>Onboarding</h1>
+    <p class="lead">
+      Choose how you would like to request access to AImageLab-SRV.
+    </p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="mb-4">
+      <h2 class="h4">Option 1: Automatic Onboarding (with a UNIMORE Account)</h2>
+      <p>
+        If you have a UNIMORE institutional account you can use the automatic onboarding process.
+        We will retrieve your verified identity data via Shibboleth and pre-fill your profile.
+      </p>
+
+      <div class="alert alert-warning">
+        <strong>Manual approval required.</strong><br>
+        Submitting your data does <em>not</em> grant immediate access. Only users authorized to use
+        <strong>AImageLab-SRV</strong> (e.g. enrolled students of relevant courses, structured personnel,
+        PhD students, postdocs, and expressly approved collaborators) will be granted access.
+        Requests from other accounts will be reviewed and may be denied.
+      </div>
+
+    {% if user.is_authenticated and user.profile %}
+      <div class="alert alert-info">
+        Your current profile appears to be set up.
+      </div>
+    {% endif %}
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">What will happen</h5>
+          <ol class="mb-3">
+            <li>You are redirected to the UNIMORE SSO login (Shibboleth).</li>
+            <li>After successful login we receive your attributes (name, email, affiliation, etc.).</li>
+            <li>We create or update your local account/profile (in a pending state until reviewed).</li>
+            <li>An administrator reviews your request and approves or denies access.</li>
+          </ol>
+          <a class="btn btn-primary btn-lg"
+              href="{% url 'onboard-process' %}">
+            Login with UNIMORE SSO
+          </a>
+        </div>
+      </div>
+
+      <p class="text-muted small mb-1">
+        By proceeding you consent to us storing the provided institutional attributes for account management and audit.
+      </p>
+      <p class="text-muted small">
+        If your request is denied, your stored data will be limited to what is necessary for audit and policy compliance.
+      </p>
+    </div>
+
+    <div class="mb-4">
+      <h2 class="h4">Option 2: Request Account via Ticket</h2>
+      <p>
+        If you do not have a UNIMORE institutional account, you can still request access by opening a ticket.
+        Provide your full name, institutional affiliation (if any), intended use, and justification.
+        The request will be reviewed and you will be contacted regarding the outcome.
+      </p>
+      <a class="btn btn-outline-secondary"
+         href="https://ailb-web.ing.unimore.it/tickets/" target="_blank" rel="noopener">
+        Open Service Desk Ticket
+      </a>
+      <p class="text-muted small mt-2">
+        Do not submit both options unless instructed. Using the ticket system when you already have a UNIMORE account may slow processing.
+      </p>
+    </div>
+
+    <div class="mb-4">
+      <h2 class="h4">Option 3: External User Onboarding (No UNIMORE Account)</h2>
+      <p>
+        If you are an external collaborator without a UNIMORE account you can submit your data directly here,
+        including an identity document. Your request will be reviewed manually.
+      </p>
+      <a class="btn btn-outline-primary" href="{% url 'onboard-external' %}">External Onboarding Form</a>
+      <p class="text-muted small mt-2">Do not use this if you can login via UNIMORE SSO.</p>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <img src="{% static 'core/portal/imgs/onboard.png' %}" alt="Onboarding" class="img-fluid mb-3 d-none d-lg-block">
+    <div class="card">
+      <div class="card-body">
+        <h6 class="card-title">Need Help?</h6>
+        <p class="small mb-2">
+          If you encounter issues during onboarding, open a ticket and include any error messages.
+        </p>
+        <a class="btn btn-sm btn-outline-primary"
+           href="https://ailb-web.ing.unimore.it/tickets/" target="_blank" rel="noopener">
+          Get Support
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+  {{ block.super }}
+  <script>
+    $("#navbar-main > ul > li.active").removeClass("active");
+    $("#navbar-home").addClass("active");
+  </script>
+{% endblock %}

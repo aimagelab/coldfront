@@ -539,7 +539,7 @@ class AllocationAttributeUsage(TimeStampedModel):
     allocation_attribute = models.OneToOneField(
         AllocationAttribute, on_delete=models.CASCADE, primary_key=True)
     value = models.FloatField(default=0)
-    history = HistoricalRecords()
+    # history = HistoricalRecords() Removed because it was increasing the size of the DB.
 
     def __str__(self):
         return '{}: {}'.format(self.allocation_attribute.allocation_attribute_type.name, self.value)

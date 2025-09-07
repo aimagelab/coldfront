@@ -621,7 +621,6 @@ class ProjectUpdateView(SuccessMessageMixin, LoginRequiredMixin, UserPassesTestM
     model = Project
     template_name_suffix = "_update_form"
     fields = [
-        "title",
         "description",
         "field_of_science",
     ]

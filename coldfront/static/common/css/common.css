@@ -35,11 +35,6 @@ a {
 }
 
 
-
-#brand .container {
-  margin-bottom: 1px;
-}
-
 a :hover {
   color: rgb(23, 90, 142);
 }

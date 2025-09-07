@@ -21,3 +21,7 @@ db.json
 .env
 .devcontainer/*
 .bin/*
+slurm_dump/
+import_scripts/
+static/
+media/

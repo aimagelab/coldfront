@@ -94,6 +94,26 @@ class LDAP:
         self.conn.search(self.LDAP_USER_SEARCH_BASE, flt, attributes=['uid'])
         return len(self.conn.entries) > 0
 
+    def find_user_by_codice_fiscale(self, codice_fiscale: str) -> Optional[Dict[str, Any]]:
+        """Search for a user by Codice Fiscale (employeeNumber attribute).
+
+        Returns a dict with keys 'username' and 'is_expired', or None if not found.
+        'is_expired' is True when shadowExpire is set and its date is today or in the past.
+        """
+        escaped = ldap.filter.escape_filter_chars(codice_fiscale)
+        self.conn.search(self.LDAP_USER_SEARCH_BASE, f'(employeeNumber={escaped})',
+                         attributes=['uid', 'shadowExpire'])
+        if not self.conn.entries:
+            return None
+        entry = self.conn.entries[0]
+        username = entry['uid'].value
+        shadow_expire = entry['shadowExpire'].value if entry['shadowExpire'].value is not None else None
+        is_expired = False
+        if shadow_expire is not None:
+            today_epoch = (datetime.date.today() - datetime.date(1970, 1, 1)).days
+            is_expired = int(shadow_expire) <= today_epoch
+        return {'username': username, 'is_expired': is_expired}
+
     def get_user(self, username: str) -> Optional[Dict[str, Any]]:
         """Return a dict of the user's LDAP attributes or None."""
         flt = f'(uid={ldap.filter.escape_filter_chars(username)})'

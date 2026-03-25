@@ -297,11 +297,15 @@ def documentation(request):
     return render(request, 'portal/documentation_article.html', {'article': article, 'root_articles': root_articles})
 
 def onboard(request):
+    if request.user.is_authenticated:
+        messages.info(request, "You already have an account.")
+        return redirect('home')
     return render(request, 'portal/onboard.html')
 
 def onboard_process(request):
     if request.user.is_authenticated:
-        raise PermissionError("This view is only for unauthenticated users.")
+        messages.info(request, "You already have an account.")
+        return redirect('home')
     
     # Shibboleth attribute keys
     given_name = request.META.get('HTTP_X_REMOTE_FIRSTNAME').title()
@@ -310,16 +314,24 @@ def onboard_process(request):
     unimore_id = request.META.get('HTTP_X_REMOTE_USER')
     codice_fiscale = request.META.get('HTTP_X_REMOTE_CODICEFISCALE')
 
-    # Refuse if a user with this email already exists
-    # TODO this should be done with Codice Fiscale
-    if email:
-        UserModel = get_user_model()
-        if UserModel.objects.filter(email__iexact=email, is_active=True).exists():
-            messages.error(
-                request,
-                "An account with this email already exists. If you need changes or access issues resolved, open a support ticket."
-            )
-            return redirect('onboard')
+    # Check for an existing LDAP account via Codice Fiscale
+    renewal_username = None
+    if codice_fiscale:
+        try:
+            ldap_client = LDAP()
+            ldap_result = ldap_client.find_user_by_codice_fiscale(codice_fiscale)
+            if ldap_result:
+                if not ldap_result['is_expired']:
+                    messages.error(
+                        request,
+                        "An account with this Codice Fiscale is already active. "
+                        "If you need changes or access issues resolved, open a support ticket."
+                    )
+                    return redirect('onboard')
+                # Expired user — allow renewal and reuse existing username
+                renewal_username = ldap_result['username']
+        except Exception:
+            logger.warning('LDAP lookup failed during onboard_process; proceeding without check.', exc_info=True)
 
     # Prevent multiple pending requests
     existing_pending = AccountOnboardingRequest.objects.filter(
@@ -336,17 +348,20 @@ def onboard_process(request):
         form = OnboardingProcessForm(request.POST, course_queryset=course_projects)
         if form.is_valid():
             req_obj = form.save(commit=False)
-            # Generate username base
-            clean_given = _sanitize_name_for_username(given_name)
-            clean_surname = _sanitize_name_for_username(surname)
-            base_username = ''.join([n[0] for n in clean_given.split() if n]) + clean_surname.replace(' ', '')
-            base_username = base_username.lower()
-            username = base_username
-            User = get_user_model()
-            suffix = 1
-            while User.objects.filter(username=username).exists():
-                username = f"{base_username}{suffix:02d}"
-                suffix += 1
+            # Reuse existing username for renewals; generate a new one otherwise
+            if renewal_username:
+                username = renewal_username
+            else:
+                clean_given = _sanitize_name_for_username(given_name)
+                clean_surname = _sanitize_name_for_username(surname)
+                base_username = ''.join([n[0] for n in clean_given.split() if n]) + clean_surname.replace(' ', '')
+                base_username = base_username.lower()
+                username = base_username
+                User = get_user_model()
+                suffix = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}{suffix:02d}"
+                    suffix += 1
             req_obj.username = username
             req_obj.given_name = given_name
             req_obj.surname = surname
@@ -388,6 +403,11 @@ Review in admin.
         if existing_pending:
             messages.info(request, "You already have a pending request.")
             return redirect('onboard')
+        if renewal_username:
+            messages.info(
+                request,
+                "Your account has expired. Submitting this form will renew it with a new role and expiration date."
+            )
         form = OnboardingProcessForm(course_queryset=course_projects)
 
     return render(
@@ -401,13 +421,15 @@ Review in admin.
             'unimore_id': unimore_id,
             'codice_fiscale': codice_fiscale,
             'has_courses': course_projects.exists(),
+            'is_renewal': bool(renewal_username),
         }
     )
 
 def onboard_external(request):
     """Onboarding for external (non-UNIMORE) users: collects data manually plus identity document."""
     if request.user.is_authenticated:
-        raise PermissionError("This view is only for unauthenticated users.")
+        messages.info(request, "You already have an account.")
+        return redirect('home')
 
     # No Shibboleth attributes; all fields collected manually
     given_name = ''
@@ -430,20 +452,39 @@ def onboard_external(request):
             if not given_name or not surname or not email or not codice_fiscale:
                 messages.error(request, 'Name, surname, email, and Codice Fiscale are required.')
             else:
-                # Ensure no pending external request with same email
-                if AccountOnboardingRequest.objects.filter(email__iexact=email, status=AccountOnboardingRequest.STATUS_PENDING, unimore_id__isnull=True).exists():
-                    messages.warning(request, 'You already have a pending request with this email.')
+                # Ensure no pending external request with same codice fiscale
+                if AccountOnboardingRequest.objects.filter(codice_fiscale=codice_fiscale, status=AccountOnboardingRequest.STATUS_PENDING).exists():
+                    messages.warning(request, 'You already have a pending request.')
                     return redirect('onboard')
-                # Generate username from names
-                clean_given = _sanitize_name_for_username(given_name)
-                clean_surname = _sanitize_name_for_username(surname)
-                base_username = (clean_given.split()[0][0] + clean_surname).lower().replace(' ', '')
-                User = get_user_model()
-                candidate = base_username
-                i = 1
-                while User.objects.filter(username=candidate).exists():
-                    candidate = f"{base_username}{i:02d}"
-                    i += 1
+                # Check LDAP for existing account with this Codice Fiscale
+                renewal_username = None
+                try:
+                    ldap_client = LDAP()
+                    ldap_result = ldap_client.find_user_by_codice_fiscale(codice_fiscale)
+                    if ldap_result:
+                        if not ldap_result['is_expired']:
+                            messages.error(
+                                request,
+                                "An account with this Codice Fiscale is already active. "
+                                "If you need changes or access issues resolved, open a support ticket."
+                            )
+                            return redirect('onboard')
+                        renewal_username = ldap_result['username']
+                except Exception:
+                    logger.warning('LDAP lookup failed during onboard_external; proceeding without check.', exc_info=True)
+                # Reuse existing username for renewals; generate a new one otherwise
+                if renewal_username:
+                    candidate = renewal_username
+                else:
+                    clean_given = _sanitize_name_for_username(given_name)
+                    clean_surname = _sanitize_name_for_username(surname)
+                    base_username = (clean_given.split()[0][0] + clean_surname).lower().replace(' ', '')
+                    User = get_user_model()
+                    candidate = base_username
+                    i = 1
+                    while User.objects.filter(username=candidate).exists():
+                        candidate = f"{base_username}{i:02d}"
+                        i += 1
                 req_obj: AccountOnboardingRequest = form.save(commit=False)
                 req_obj.username = candidate
                 req_obj.given_name = given_name

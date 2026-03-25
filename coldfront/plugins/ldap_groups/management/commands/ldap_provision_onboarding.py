@@ -154,13 +154,22 @@ class Command(BaseCommand):
                     last_name=req.surname,
                     email=req.email,
                     role=role_group,
-                    password_hash=None,  # do not alter password on generic updates
+                    password_hash=password_hash,  # restore SASL ref or set new OTP on renewal
                     expiration_date=expiration_date,
                     is_unimore=is_unimore,
                     unimore_ldap_username=unimore_ldap_username,
                     codice_fiscale=req.codice_fiscale,
                     move_if_role_changed=True,
                 )
+                # Reactivate Django User if it exists and was marked inactive
+                try:
+                    django_user = User.objects.filter(username=req.username).first()
+                    if django_user and not django_user.is_active:
+                        django_user.is_active = True
+                        django_user.save(update_fields=['is_active'])
+                        logger.info('Reactivated Django user %s', req.username)
+                except Exception as e:
+                    logger.warning('Failed to reactivate Django user %s: %s', req.username, e)
 
         if not dry_run:
             ldap_client.add_user_to_groups(req.username, ACCESS_GROUPS)

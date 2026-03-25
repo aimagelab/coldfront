@@ -1,0 +1,133 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Onboarding Request - {{ onboarding_request.username }}{% endblock %}
+
+{% block content %}
+<h2>Onboarding Request</h2>
+<hr>
+
+<div class="row">
+  <div class="col">
+    <a href="{% url 'onboarding-request-list' %}" class="btn btn-secondary mb-3">
+      <i class="fas fa-arrow-left" aria-hidden="true"></i> Back to List
+    </a>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="d-inline"><i class="fas fa-user" aria-hidden="true"></i> {{ onboarding_request.given_name }} {{ onboarding_request.surname }}</h3>
+    <div class="float-right">
+      {% if onboarding_request.status == 'Pending' %}
+        <span class="badge badge-warning">Pending</span>
+      {% elif onboarding_request.status == 'Approved' %}
+        <span class="badge badge-success">Approved</span>
+      {% else %}
+        <span class="badge badge-danger">Rejected</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6">
+        <dl class="row">
+          <dt class="col-sm-4">Username</dt>
+          <dd class="col-sm-8">{{ onboarding_request.username }}</dd>
+
+          <dt class="col-sm-4">Given Name</dt>
+          <dd class="col-sm-8">{{ onboarding_request.given_name }}</dd>
+
+          <dt class="col-sm-4">Surname</dt>
+          <dd class="col-sm-8">{{ onboarding_request.surname }}</dd>
+
+          <dt class="col-sm-4">Email</dt>
+          <dd class="col-sm-8">{{ onboarding_request.email }}</dd>
+
+          <dt class="col-sm-4">Codice Fiscale</dt>
+          <dd class="col-sm-8">{{ onboarding_request.codice_fiscale|default:"&mdash;" }}</dd>
+
+          <dt class="col-sm-4">UNIMORE ID</dt>
+          <dd class="col-sm-8">{{ onboarding_request.unimore_id|default:"&mdash;" }}</dd>
+        </dl>
+      </div>
+      <div class="col-md-6">
+        <dl class="row">
+          <dt class="col-sm-4">Role</dt>
+          <dd class="col-sm-8">{{ onboarding_request.role }}</dd>
+
+          <dt class="col-sm-4">Course</dt>
+          <dd class="col-sm-8">
+            {% if onboarding_request.course_project %}
+              <a href="{% url 'project-detail' onboarding_request.course_project.pk %}">{{ onboarding_request.course_project.title }}</a>
+            {% else %}
+              &mdash;
+            {% endif %}
+          </dd>
+
+          <dt class="col-sm-4">Expiration</dt>
+          <dd class="col-sm-8">{{ onboarding_request.expiration_date|default:"&mdash;" }}</dd>
+
+          <dt class="col-sm-4">Submitted</dt>
+          <dd class="col-sm-8">{{ onboarding_request.submitted_at|date:"M. d, Y H:i" }}</dd>
+
+          <dt class="col-sm-4">Processed</dt>
+          <dd class="col-sm-8">{{ onboarding_request.processed_at|date:"M. d, Y H:i"|default:"&mdash;" }}</dd>
+
+          <dt class="col-sm-4">LDAP Provisioned</dt>
+          <dd class="col-sm-8">
+            {% if onboarding_request.processed_in_ldap %}
+              <span class="badge badge-success">Yes</span>
+            {% else %}
+              <span class="badge badge-secondary">No</span>
+            {% endif %}
+          </dd>
+        </dl>
+      </div>
+    </div>
+
+    {% if onboarding_request.identity_document %}
+      <hr>
+      <dt>Identity Document</dt>
+      <dd><a href="{{ onboarding_request.identity_document.url }}" target="_blank">Download</a></dd>
+    {% endif %}
+  </div>
+</div>
+
+{% if onboarding_request.status == 'Pending' %}
+  <div class="card mb-3">
+    <div class="card-header">
+      <h3 class="d-inline"><i class="fas fa-check-circle" aria-hidden="true"></i> Actions</h3>
+    </div>
+    <div class="card-body">
+      <form method="post" action="{% url 'onboarding-request-approve' onboarding_request.pk %}" class="d-inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success mr-2">Approve</button>
+      </form>
+      <form method="post" action="{% url 'onboarding-request-reject' onboarding_request.pk %}">
+        {% csrf_token %}
+        <div class="form-group mt-3">
+          <label for="rejection_reason">Rejection reason <small class="text-muted">(optional)</small></label>
+          <textarea name="rejection_reason" id="rejection_reason" class="form-control" rows="3" placeholder="Explain why this request is being rejected..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-danger">Reject</button>
+      </form>
+    </div>
+  </div>
+{% elif onboarding_request.status == 'Rejected' and onboarding_request.rejection_reason %}
+  <div class="card mb-3 border-danger">
+    <div class="card-header bg-danger text-white">
+      <h3 class="d-inline"><i class="fas fa-times-circle" aria-hidden="true"></i> Rejection Reason</h3>
+    </div>
+    <div class="card-body">
+      {{ onboarding_request.rejection_reason }}
+    </div>
+  </div>
+{% endif %}
+
+<script>
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-admin").addClass("active");
+  $("#navbar-onboarding-requests").addClass("active");
+</script>
+{% endblock %}

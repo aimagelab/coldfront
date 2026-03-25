@@ -15,12 +15,12 @@ import copy
 
 # Env variables
 ACCESS_GROUPS = ['ailb-srv']
-ROLE_GROUPS = ['strutturati', 'dottorandi', 'assegnisti', 'ospiti', 'tesisti', 'past_members', 'administrators', 'collaborazioni', 'studenti']
+ROLE_GROUPS = ['dottorandi', 'assegnisti', 'ospiti', 'tesisti', 'past_members', 'administrators', 'collaborazioni', 'studenti', 'contratti_ricerca', 'incarichi_ricerca', 'incarichi_postdoc', 'professori_associati', 'professori_ordinari', 'ricercatori_rtda', 'ricercatori_rtdb', 'ricercatori_rtt']
 MATTERMOST_GROUP = 'ailb-mattermost'
 
 # LDAP Connection
 base = 'dc=aimagelab,dc=unimore,dc=it'
-l = ldap.initialize("ldap://ailb-login-01.ing.unimore.it")
+l = ldap.initialize("ldap://ailb-auth.ing.unimore.it")
 l.simple_bind_s("cn=admin,%s" % base,"a7w09lmg")
 
 # User class
@@ -87,8 +87,10 @@ class User:
 
     @property
     def dn(self):
-        if self.role in ['dottorandi', 'assegnisti', 'collaborazioni']:
+        if self.role in ['dottorandi', 'assegnisti', 'collaborazioni', 'contratti_ricerca', 'incarichi_ricerca', 'incarichi_postdoc']:
             ou = 'non_strutturati'
+        elif self.role in ['ricercatori_rtda', 'ricercatori_rtdb', 'ricercatori_rtt', 'professori_associati', 'professori_ordinari']:
+            ou = 'strutturati'
         else:
             ou = self.role
         dn = "uid=%s,ou=%s,ou=users,%s" % (self.username, ou, base)
@@ -128,9 +130,9 @@ class User:
             text = f.read()
         text = text % (self.firstname, self.username, self.expiration)
         msg = message.Message()
-        msg.add_header('from', 'AImageLab-SRV <aimagelab-srv-support@unimore.it>')
+        msg.add_header('from', 'AImageLab-HPC <aimagelab-srv-support@unimore.it>')
         msg.add_header('to', self.email)
-        msg.add_header('subject', 'Welcome to AImageLab-SRV!')
+        msg.add_header('subject', 'Welcome to AImageLab-HPC!')
         msg.set_payload(text)
         server = smtplib.SMTP()
         server.connect('localhost')
@@ -139,11 +141,11 @@ class User:
 
 
     def send_otp(self, password):
-        text = 'Your one-time password for accessing AImagelab-SRV is: %s' % password
+        text = 'Your one-time password for accessing AImageLab-HPC is: %s' % password
         msg = message.Message()
-        msg.add_header('from', 'AImageLab-SRV <aimagelab-srv-support@unimore.it>')
+        msg.add_header('from', 'AImageLab-HPC <aimagelab-srv-support@unimore.it>')
         msg.add_header('to', self.email)
-        msg.add_header('subject', 'One-time password for AImageLab-SRV')
+        msg.add_header('subject', 'One-time password for AImageLab-HPC')
         msg.set_payload(text)
         server = smtplib.SMTP()
         server.connect('localhost')

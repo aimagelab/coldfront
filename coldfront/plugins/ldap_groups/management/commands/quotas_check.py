@@ -29,7 +29,7 @@ class Command(BaseCommand):
     # Cache squota output, we hypothesize it does not change during the execution of this script
     @lru_cache(maxsize=1)
     def get_from_squota(self, filesystem):
-        command = "squota -f {} -A -P".format(filesystem)
+        command = "sudo squota -f {} -A -P".format(filesystem)
         output = os.popen(command).read()
 
         quotas = dict()
@@ -46,7 +46,7 @@ class Command(BaseCommand):
         return quotas, usages
 
     def set_quota(self, filesystem, group, quota):
-        command = "squota -f {} -u {} -q {}".format(filesystem, group, quota)
+        command = "sudo squota -f {} -u {} -q {}".format(filesystem, group, quota)
         logger.info("Setting quota: %s", command)
         if not self.noop:
             os.system(command)

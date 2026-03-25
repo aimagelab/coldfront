@@ -145,9 +145,12 @@ class LDAP:
         """Replicate OU placement logic from legacy script.
         Certain roles are grouped under ou=non_strutturati; others directly under their role.
         """
-        non_structured = {'dottorandi', 'assegnisti', 'collaborazioni'}
+        non_structured = {'dottorandi', 'assegnisti', 'collaborazioni', 'contratti_ricerca', 'incarichi_ricerca', 'incarichi_postdoc'}
+        structured = {'ricercatori_rtda', 'ricercatori_rtdb', 'ricercatori_rtt', 'professori_associati', 'professori_ordinari'}
         if role in non_structured:
             ou = 'non_strutturati'
+        elif role in structured:
+            ou = 'strutturati'
         else:
             ou = role
         # user search base typically like 'ou=users,dc=example,dc=org'
@@ -172,7 +175,8 @@ class LDAP:
                     mobile: Optional[str] = None,
                     expiration_date: Optional[datetime.date] = None,
                     is_unimore: bool = False,
-                    unimore_ldap_username: Optional[str] = None) -> str:
+                    unimore_ldap_username: Optional[str] = None,
+                    codice_fiscale: Optional[str] = None) -> str:
         """Create a new user entry (LDAP-only responsibilities).
 
         Caller is responsible for generating password_hash (e.g. {SHA} base64...).
@@ -200,6 +204,9 @@ class LDAP:
         }
         if mobile:
             attrs['mobile'] = mobile
+        if codice_fiscale:
+            attrs['employeeNumber'] = codice_fiscale
+
         # Shadow / password policy attributes (skip some for external accounts)
         if not is_unimore:
             attrs.update({
@@ -224,42 +231,93 @@ class LDAP:
 
     def update_user(self,
                     username: str,
-                    role: str,
-                    new_attrs: Dict[str, Any],
+                    first_name: Optional[str] = None,
+                    last_name: Optional[str] = None,
+                    email: Optional[str] = None,
+                    role: Optional[str] = None,
+                    password_hash: Optional[str] = None,
+                    uid_number: Optional[int] = None,
+                    gid_number: Optional[int] = None,
+                    home_root: Optional[str] = None,
+                    login_shell: Optional[str] = None,
+                    mobile: Optional[str] = None,
+                    expiration_date: Optional[datetime.date] = None,
+                    is_unimore: bool = False,
+                    unimore_ldap_username: Optional[str] = None,
+                    codice_fiscale: Optional[str] = None,
                     move_if_role_changed: bool = True) -> str:
-        """Update a user's attributes; if the target DN (due to role change) differs, move entry.
+        """Update a user's attributes using a symmetric API to create_user.
 
-        new_attrs should contain only attributes to change (already with correct formatting / hashing).
+        Only attributes provided (non-None) are modified. If role changes, the DN
+        is updated accordingly and primary group (gidNumber) aligned with the role.
         Returns the (possibly new) DN.
         """
         current = self.get_user(username)
         if not current:
             raise ValueError(f'User {username} not found')
         current_dn = current['dn']  # type: ignore[index]
-        target_dn = self.build_user_dn(username, role)
 
-        # Prepare modifications: for simplicity we REPLACE provided attributes
-        modifications = {}
-        for k, v in new_attrs.items():
-            if v is None:
-                modifications[k] = [(MODIFY_DELETE, [])]
-            else:
-                modifications[k] = [(MODIFY_REPLACE, [v] if not isinstance(v, (list, tuple)) else list(v))]
+        # If role isn't provided, keep current placement
+        role_for_dn = role if role is not None else None
+        target_dn = self.build_user_dn(username, role_for_dn) if role_for_dn else current_dn
 
+        modifications: Dict[str, Any] = {}
+
+        if first_name is not None:
+            modifications['givenName'] = [(MODIFY_REPLACE, [first_name])]
+        if last_name is not None:
+            modifications['sn'] = [(MODIFY_REPLACE, [last_name])]
+        if (first_name is not None) or (last_name is not None):
+            # Recompute CN when either component changes
+            cn_val = f"{first_name or current.get('givenName', '')} {last_name or current.get('sn', '')}".strip()
+            modifications['cn'] = [(MODIFY_REPLACE, [cn_val])]
+        if email is not None:
+            modifications['mail'] = [(MODIFY_REPLACE, [email])]
+        if login_shell is not None:
+            modifications['loginShell'] = [(MODIFY_REPLACE, [login_shell])]
+        if home_root is not None:
+            modifications['homeDirectory'] = [(MODIFY_REPLACE, [f"{home_root.rstrip('/')}/{username}"])]
+        if uid_number is not None:
+            modifications['uidNumber'] = [(MODIFY_REPLACE, [str(uid_number)])]
+        # Align gidNumber: explicit gid_number wins; else if role provided, ensure role group gid
+        if gid_number is not None:
+            modifications['gidNumber'] = [(MODIFY_REPLACE, [str(gid_number)])]
+        elif role is not None:
+            role_gid = self.ensure_group(role)
+            modifications['gidNumber'] = [(MODIFY_REPLACE, [str(role_gid)])]
+        # Mobile: set if provided; do not delete when None to avoid unintended removal
+        if mobile is not None:
+            modifications['mobile'] = [(MODIFY_REPLACE, [mobile])]
+        if codice_fiscale is not None:
+            modifications['employeeNumber'] = [(MODIFY_REPLACE, [codice_fiscale])]
+
+        # Password handling: if UNIMORE, set SASL reference; else replace only if provided
+        if is_unimore and unimore_ldap_username:
+            modifications['userPassword'] = [(MODIFY_REPLACE, [f"{{SASL}}{unimore_ldap_username}"])]
+        elif password_hash is not None:
+            modifications['userPassword'] = [(MODIFY_REPLACE, [password_hash])]
+
+        # Shadow / expiration
+        if expiration_date is not None:
+            modifications['shadowExpire'] = [(MODIFY_REPLACE, [str(self._epoch_days(expiration_date))])]
+        # For symmetry with create_user, optionally maintain external account shadow settings
+        if not is_unimore and password_hash is not None:
+            modifications['shadowLastChange'] = [(MODIFY_REPLACE, ['1'])]
+            modifications['shadowMax'] = [(MODIFY_REPLACE, ['30'])]
+            modifications['shadowWarning'] = [(MODIFY_REPLACE, ['15'])]
+
+        # Apply modifications if any
         if modifications:
             ok = self.conn.modify(current_dn, modifications)
             if not ok:
                 raise RuntimeError(f'Failed to modify user {username}: {self.conn.result}')
 
+        # Move entry if DN should change (e.g., role change)
         if move_if_role_changed and current_dn.lower() != target_dn.lower():
-            # ldap3 modify_dn could be used, but easier to add new + delete to mirror legacy script behavior
-            # Fetch full entry after modification
             refreshed = self.get_user(username)
             if not refreshed:  # pragma: no cover
                 raise RuntimeError('User disappeared after modify')
-            # Build attribute dict for add (excluding operational attributes)
             attr_copy = {k: refreshed[k] for k in refreshed.keys() if k not in {'dn'} and refreshed[k]}
-            # Remove existing object
             ok_add = self.conn.add(target_dn, attributes=attr_copy)
             if not ok_add:
                 raise RuntimeError(f'Failed to add entry at new DN {target_dn}: {self.conn.result}')

@@ -12,20 +12,43 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.mail import EmailMessage
 
+from django.contrib.auth.models import User
+
 from coldfront.core.portal.models import AccountOnboardingRequest
+from coldfront.core.project.models import (
+    Project,
+    ProjectUser,
+    ProjectUserRoleChoice,
+    ProjectUserStatusChoice,
+)
+from coldfront.core.project.signals import project_activate_user
+from coldfront.core.allocation.models import (
+    Allocation,
+    AllocationUser,
+    AllocationUserStatusChoice,
+)
+from coldfront.core.allocation.signals import allocation_activate_user
 from coldfront.plugins.ldap_groups.ldap_connector import LDAP
 
 logger = logging.getLogger(__name__)
 
 ACCESS_GROUPS = getattr(settings, 'LDAP_ACCESS_GROUPS', ['ailb-srv'])
 ROLE_GROUPS_MAP = getattr(settings, 'LDAP_ROLE_GROUPS_MAP', {
-    'PhD Student': 'dottorandi',
-    'Research grant': 'assegnisti',
-    'Research contract': 'collaborazioni',
-    'Guest': 'ospiti',
-    'Structured personnel': 'strutturati',
-    'Student doing a thesis': 'tesisti',
-    'Student from a course': 'studenti',
+    'Studente di Dottorato': 'dottorandi',
+    'Assegno di Ricerca': 'assegnisti',
+    'Contratto di Ricerca': 'contratti_ricerca',
+    'Incarico di Ricerca': 'incarichi_ricerca',
+    'Incarico Post-Doc': 'incarichi_postdoc',
+    'Incarico di Collaborazione': 'collaborazioni',
+    'Ricercatore RTD-A': 'ricercatori_rtda',
+    'Ricercatore RTD-B': 'ricercatori_rtd',
+    'Ricercatore RTT': 'ricercatori_rtt',
+    'Professore Associato': 'professori_associati',
+    'Professore Ordinario': 'professori_ordinari',
+    'Studente in tesi': 'tesisti',
+    'Studente da un corso': 'studenti',
+    'Ospiti a vario titolo': 'ospiti',
+    'Deactivated user': 'past_members',
 })
 DEFAULT_HOME_ROOT = getattr(settings, 'LDAP_HOME_ROOT', '/homes')
 HOME_QUOTA_GB = getattr(settings, 'LDAP_HOME_QUOTA_GB', 100)
@@ -83,27 +106,25 @@ class Command(BaseCommand):
         if not role_group:
             logger.warning('Skipping request %s: unmapped role %s', req.id, req.role)
             return
-
         expiration_date = req.expiration_date
 
         # Determine if user exists in LDAP
         exists = ldap_client.user_exists(req.username)
         logger.info('Request %s -> username=%s exists=%s', req.id, req.username, exists)
 
+        # Decide password scheme: UNIMORE accounts detected by presence of unimore_id
         raw_pw = None  # store one-time password for non-UNIMORE accounts
-        created = False
+        is_unimore = bool(req.unimore_id)
+        unimore_ldap_username = req.unimore_id if is_unimore else None
+
+        if is_unimore:
+            password_hash = '{SASL}' + unimore_ldap_username
+        else:
+            raw_pw = random_password()
+            password_hash = make_sha_password(raw_pw)
+
         if not exists:
             # Create new user
-            # Decide password scheme: UNIMORE accounts detected by presence of unimore_id
-            is_unimore = bool(req.unimore_id)
-            unimore_ldap_username = req.unimore_id if is_unimore else None
-
-            if is_unimore:
-                password_hash = '{SASL}' + unimore_ldap_username
-            else:
-                raw_pw = random_password()
-                password_hash = make_sha_password(raw_pw)
-
             if dry_run:
                 logger.info('[DRY-RUN] Would create user %s', req.username)
             else:
@@ -117,32 +138,37 @@ class Command(BaseCommand):
                     expiration_date=expiration_date,
                     is_unimore=is_unimore,
                     unimore_ldap_username=unimore_ldap_username,
+                    codice_fiscale=req.codice_fiscale,
                     home_root=DEFAULT_HOME_ROOT,
                 )
-                created = True
-                ldap_client.add_user_to_groups(req.username, ACCESS_GROUPS)
-                ldap_client.add_user_to_groups(req.username, [role_group])
-                if not dry_run:
-                    self._ensure_home_directory(req.username)
         else:
-            # Update existing user attributes
-            new_attrs = {
-                'givenName': req.given_name,
-                'sn': req.surname,
-                'cn': f'{req.given_name} {req.surname}'.strip(),
-                'mail': req.email,
-            }
-            if expiration_date:
-                epoch_days = (expiration_date - datetime.date(1970, 1, 1)).days
-                new_attrs['shadowExpire'] = str(epoch_days)
+            # Update existing user attributes using symmetric API
+            is_unimore = bool(req.unimore_id)
+            unimore_ldap_username = req.unimore_id if is_unimore else None
             if dry_run:
-                logger.info('[DRY-RUN] Would update user %s attrs=%s', req.username, new_attrs)
+                logger.info('[DRY-RUN] Would update user %s', req.username)
             else:
-                ldap_client.update_user(req.username, role_group, new_attrs)
+                ldap_client.update_user(
+                    username=req.username,
+                    first_name=req.given_name,
+                    last_name=req.surname,
+                    email=req.email,
+                    role=role_group,
+                    password_hash=None,  # do not alter password on generic updates
+                    expiration_date=expiration_date,
+                    is_unimore=is_unimore,
+                    unimore_ldap_username=unimore_ldap_username,
+                    codice_fiscale=req.codice_fiscale,
+                    move_if_role_changed=True,
+                )
 
-        # Send welcome / password emails only for newly created accounts (not updates)
-        if created and not dry_run:
+        if not dry_run:
+            ldap_client.add_user_to_groups(req.username, ACCESS_GROUPS)
+            ldap_client.add_user_to_groups(req.username, [role_group])
+            self._ensure_home_directory(req.username)
             self._send_welcome_email(req, raw_pw)
+            if req.role == AccountOnboardingRequest.ROLE_COURSE and req.course_project_id:
+                self._add_user_to_course_project(req)
 
         if not dry_run:
             # Mark request as processed in LDAP
@@ -179,7 +205,7 @@ class Command(BaseCommand):
         # Always send welcome
         try:
             EmailMessage(
-                subject='Welcome to AImageLab-SRV!',
+                subject='Welcome to AImageLab-HPC!',
                 body=body,
                 from_email=from_email,
                 to=[req.email]
@@ -190,11 +216,11 @@ class Command(BaseCommand):
 
         # OTP email for non-UNIMORE accounts only
         if raw_pw:
-            otp_body = f'Your one-time password for accessing AImageLab-SRV is: {raw_pw}\n' \
+            otp_body = f'Your one-time password for accessing AImageLab-HPC is: {raw_pw}\n' \
                        'Use it at first login from a university network (VPN / on-campus).'
             try:
                 EmailMessage(
-                    subject='One-time password for AImageLab-SRV',
+                    subject='One-time password for AImageLab-HPC',
                     body=otp_body,
                     from_email=from_email,
                     to=[req.email]
@@ -214,30 +240,75 @@ class Command(BaseCommand):
         home_path = os.path.join(DEFAULT_HOME_ROOT, username)
         if os.path.exists(home_path):
             logger.debug('Home directory already exists for %s', username)
-            return
-        logger.info('Creating home directory for %s', username)
-        try:
-            subprocess.run(['sudo', 'mkdir', '-p', home_path], check=True)
-        except Exception as e:
-            logger.error('Failed to create home dir for %s: %s', username, e)
-            return
-        # Populate home directory
-        script_path = os.path.join(os.path.dirname(__file__), 'populate_home.sh')
-        script_dir = os.path.dirname(script_path)
-        if os.path.exists(script_path):
-            try:
-                subprocess.run(
-                    ['sudo', script_path, username, ACCESS_GROUPS[0] if ACCESS_GROUPS else 'ailb-srv'],
-                    check=True,
-                    cwd=script_dir
-                )
-                logger.info('Populated home directory for %s using %s', username, script_path)
-            except Exception as e:
-                logger.warning('Failed to populate home directory for %s: %s', username, e)
         else:
-            logger.warning('populate_home script not found at %s; home directory left unpopulated.', script_path)
+            logger.info('Creating home directory for %s', username)
+            script_path = os.path.join(os.path.dirname(__file__), 'populate_home.sh')
+            script_dir = os.path.dirname(script_path)
+            if os.path.exists(script_path):
+                try:
+                    subprocess.run(
+                        ['sudo', script_path, username, ACCESS_GROUPS[0] if ACCESS_GROUPS else 'ailb-srv'],
+                        check=True,
+                        cwd=script_dir
+                    )
+                    logger.info('Populated home directory for %s using %s', username, script_path)
+                except Exception as e:
+                    logger.warning('Failed to populate home directory for %s: %s', username, e)
+            else:
+                logger.warning('populate_home script not found at %s; home directory left unpopulated.', script_path)
         # Set quota (using squota tool if available)
         try:
-            subprocess.run(['squota', '-u', username, '-f', DEFAULT_HOME_ROOT, '-q', str(HOME_QUOTA_GB)], check=False)
+            subprocess.run(['sudo', '/usr/local/bin/squota', '-u', username, '-f', DEFAULT_HOME_ROOT, '-q', str(HOME_QUOTA_GB)], check=False)
         except Exception as e:
             logger.warning('Failed to set quota for %s: %s', username, e)
+
+    # ------------------------------------------------------------------
+    # Course project helpers
+    # ------------------------------------------------------------------
+    def _add_user_to_course_project(self, req: AccountOnboardingRequest):
+        """Add the newly provisioned course student to their course project and all its allocations."""
+        try:
+            user_obj, _ = User.objects.get_or_create(username=req.username)
+            user_obj.first_name = req.given_name
+            user_obj.last_name = req.surname
+            user_obj.email = req.email
+            user_obj.save()
+
+            project = req.course_project
+            user_role = ProjectUserRoleChoice.objects.get(name='User')
+            active_project_status = ProjectUserStatusChoice.objects.get(name='Active')
+            active_alloc_user_status = AllocationUserStatusChoice.objects.get(name='Active')
+
+            # Add to project
+            if project.projectuser_set.filter(user=user_obj).exists():
+                project_user_obj = project.projectuser_set.get(user=user_obj)
+                project_user_obj.role = user_role
+                project_user_obj.status = active_project_status
+                project_user_obj.save()
+            else:
+                project_user_obj = ProjectUser.objects.create(
+                    user=user_obj,
+                    project=project,
+                    role=user_role,
+                    status=active_project_status,
+                )
+            project_activate_user.send(sender=self.__class__, project_user_pk=project_user_obj.pk)
+
+            # Add to all active allocations of the project
+            active_alloc_statuses = ['Active', 'Renewal Requested']
+            for allocation in project.allocation_set.filter(status__name__in=active_alloc_statuses):
+                if allocation.allocationuser_set.filter(user=user_obj).exists():
+                    alloc_user_obj = allocation.allocationuser_set.get(user=user_obj)
+                    alloc_user_obj.status = active_alloc_user_status
+                    alloc_user_obj.save()
+                else:
+                    alloc_user_obj = AllocationUser.objects.create(
+                        allocation=allocation,
+                        user=user_obj,
+                        status=active_alloc_user_status,
+                    )
+                allocation_activate_user.send(sender=self.__class__, allocation_user_pk=alloc_user_obj.pk)
+
+            logger.info('Added user %s to course project %s', req.username, project.pk)
+        except Exception as e:
+            logger.error('Failed to add user %s to course project %s: %s', req.username, req.course_project_id, e)

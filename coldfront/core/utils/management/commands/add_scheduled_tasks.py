@@ -29,3 +29,10 @@ class Command(BaseCommand):
             schedule(
                 "coldfront.core.allocation.tasks.send_eula_reminders", schedule_type=Schedule.WEEKLY, next_run=date
             )
+
+        schedule(
+            "django.core.management.call_command",
+            "ldap_provision_onboarding",
+            schedule_type=Schedule.MINUTES,
+            minutes=10,
+        )

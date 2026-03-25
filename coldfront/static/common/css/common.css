@@ -18,7 +18,7 @@ main {
 }
 
 a {
-  color: rgb(23, 90, 142);
+  color: oklab(30% 0.15764 0.06234);
 }
 
 .bg-primary {
@@ -35,8 +35,8 @@ a {
 }
 
 
-a :hover {
-  color: rgb(23, 90, 142);
+a:hover {
+  color: oklab(20% 0.15764 0.06234);
 }
 
 h1 {
@@ -60,16 +60,20 @@ h5 {
 }
 
 .progress-bar {
-  background-color: #0171cf
+  background-color: oklab(42.107% 0.15764 0.06234)
 }
 
 .page-item.active .page-link {
-    background-color: rgb(23, 90, 142);
-    border-color: rgb(23, 90, 142);
+    background-color: oklab(30% 0.15764 0.06234);
+    border-color: oklab(30% 0.15764 0.06234);
 }
 
-.page-link { 
-    color: rgb(23, 90, 142);
+.page-link {
+    color: oklab(30% 0.15764 0.06234);
+}
+
+.page-link:hover {
+    color: oklab(20% 0.15764 0.06234);
 }
 
 .navbar-custom {
@@ -97,29 +101,29 @@ h5 {
 }
 
 .blue-nav-bar-side {
-  background-color: #0171cf;
+  background-color: oklab(42.107% 0.15764 0.06234);
   margin-right: 0px;
   margin-left: 0px;
   padding-bottom: 3px;
 }
 
 #brand {
-  background-color: #0171cf !important;
+  background-color: oklab(42.107% 0.15764 0.06234) !important;
   color: #FFFFFF !important;
   padding-top: 1rem;
 }
 
 .bg-primary {
-  background-color: #0171cf !important;
+  background-color: oklab(42.107% 0.15764 0.06234) !important;
 }
 
 .text-primary {
-  color: rgb(23, 90, 142) !important;
+  color: oklab(30% 0.15764 0.06234) !important;
 
 }
 
 .border-primary {
-  border-color: rgb(23, 90, 142) !important;
+  border-color: oklab(30% 0.15764 0.06234) !important;
 }
 
 
@@ -138,7 +142,7 @@ h5 {
   width: 100%;
   /* Set the fixed height of the footer here */
   height: 250px;
-  background-color: #0171cf;
+  background-color: oklch(0.37 0 0);
   color: #ffffff !important;
   padding-top: 15px;
   border-top: 2px solid #0c2340;
@@ -191,13 +195,13 @@ body > main > div > div.card.border-primary > div.card-body > form > div.alert.a
 
 
 .btn-primary {
-    background: rgb(23, 90, 142);
-    border-color: rgb(23, 90, 142);
+    background: oklab(30% 0.15764 0.06234);
+    border-color: oklab(30% 0.15764 0.06234);
 }
 
 .btn-primary:hover {
-    background: rgb(23, 90, 142);
-    border-color: rgb(23, 90, 142);
+    background: oklab(30% 0.15764 0.06234);
+    border-color: oklab(30% 0.15764 0.06234);
 }
 
 .hijacked-warning {

@@ -1,4 +1,5 @@
 {% load static %}
+{% load common_tags %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -45,7 +46,7 @@
 
   {% block css %} {% endblock %}
 
-  <title>{% block title %}Welcome to AImageLab-SRV{% endblock %}</title>
+  <title>{% block title %}Welcome to {% settings_value 'CENTER_NAME' %}{% endblock %}</title>
 </head>
 
 <body>

@@ -34,8 +34,8 @@ for allocation in allocations:
     users = User.objects.filter(allocationuser__allocation=allocation).distinct()
 
     # Send e-mail to all users
-    subject = f"[AImageLab-SRV] Your /work area for {allocation.project.title} is about to be deleted"
-    message = f"Dear user,\n\nYour WORK allocation for project {allocation.project.title} is going to expire on {allocation.end_date.strftime('%Y-%m-%d')}, and is therefore about to be deleted.\n\nPlease, make sure to backup all your data before the expiration. In case you want to require an extension, please visit https://ailb-web.ing.unimore.it/ or reach out to aimagelab-srv-support@unimore.it.\n\nBest regards,\nAImageLab-SRV"
+    subject = f"[AImageLab-HPC] Your /work area for {allocation.project.title} is about to be deleted"
+    message = f"Dear user,\n\nYour WORK allocation for project {allocation.project.title} is going to expire on {allocation.end_date.strftime('%Y-%m-%d')}, and is therefore about to be deleted.\n\nPlease, make sure to backup all your data before the expiration. In case you want to require an extension, please visit https://ailb-web.ing.unimore.it/ or reach out to aimagelab-srv-support@unimore.it.\n\nBest regards,\nAImageLab-HPC"
 
     for user in users:
         # Remove blacklisted emails

@@ -12,7 +12,7 @@ Log In
 <div class="col-sm-6 offset-sm-3">
   {% if form.errors %}
     <div class="alert alert-info alert-dismissible fade show" role="alert">
-      {% autoescape off %} {% settings_value 'LOGIN_FAIL_MESSAGE' %} {% endautoescape %}
+      {% autoescape off %}{% settings_value 'LOGIN_FAIL_MESSAGE' %}{% endautoescape %}
       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
         <span aria-hidden="true">&times;</span>
       </button>
@@ -25,14 +25,33 @@ Log In
     </div>
     <div class="card-body">
       {% if 'mozilla_django_oidc' in EXTRA_APPS %}
-        <a class="btn btn-primary btn-block" role="button" href="{% url 'oidc_authentication_init' %}?next={{request.GET.next}}">
-		<i class="fab fa-openid" aria-hidden="true"></i> Log in via AImageLab-SRV SSO
-        </a> 
-        <hr/>
-        <p class="text-center"><strong>OR</strong></p>
+        <a class="btn btn-primary btn-block" role="button" href="{% url 'oidc_authentication_init' %}?next={{ request.GET.next }}">
+          <i class="fab fa-openid" aria-hidden="true"></i> Log in via AImageLab-SRV SSO
+        </a>
+        <p class="text-center mt-3">
+          <a href="#" id="show-local-login">Need local/admin account? Click here.</a>
+        </p>
+        <div id="local-login-wrapper" class="mt-3" style="display:none;">
+          {% include "user/login_form.html" %}
+          <p><i>Local/admin account login.</i></p>
+        </div>
+        <script>
+          (function() {
+            var link = document.getElementById('show-local-login');
+            if (link) {
+              link.addEventListener('click', function(e) {
+                e.preventDefault();
+                var w = document.getElementById('local-login-wrapper');
+                if (w) { w.style.display = 'block'; }
+                this.parentNode.style.display = 'none';
+              });
+            }
+          })();
+        </script>
+      {% else %}
+        {% include "user/login_form.html" %}
+        <p><i>Standard login.</i></p>
       {% endif %}
-      {% include "user/login_form.html" %} 
-      <p><i>Unless you are an administrator, use the SSO login.</i></p>
     </div>
   </div>
 </div>

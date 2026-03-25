@@ -12,27 +12,54 @@ News
 
 
 {% block content %}
-<h2>News</h2>
-<hr>
-
-<div class="card mb-3 border-primary">
-  <div class="card-header bg-primary text-white">
-    <i class="fas fa-newspaper" aria-hidden="true"></i> News
-  </div>
-  <div class="card-body">
-    <div class="row">
-      <div class="col-md-12">
-        <ul>
-        {% for news in news_list %}
-          <li>
-            <a href="{% url 'news' news.hash %}">{{ news.title }}</a>
-            <small class="text-muted">{{ news.publication_date|date:"F j, Y" }}</small>
-          </li>
-        {% endfor %}
-        </ul>
+<!-- Hero header to match homepage style -->
+<section class="py-5 bg-light bg-gradient border-top border-bottom border-left border-right mb-4">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-12">
+        <h1 class="display-6 fw-bold mb-2">
+          <i class="fas fa-newspaper fa-sm me-2" aria-hidden="true"></i>
+          News
+        </h1>
+        <p class="lead text-muted mb-0">Latest updates, announcements, and highlights from our center.</p>
       </div>
     </div>
   </div>
+  </section>
+
+<!-- News list grid -->
+<section class="container mb-5">
+  <div class="row g-4">
+    {% for news in news_list %}
+      <div class="col-12 col-md-6 col-lg-4" style="padding: 15px;">
+        <div class="card h-100 shadow-sm border-0">
+          <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="badge bg-primary" style="color: white;">
+                <i class="far fa-calendar-alt me-1" aria-hidden="true"></i>
+                {{ news.publication_date|date:"F j, Y" }}
+                </span>
+            </div>
+            <h3 class="h5 card-title mb-2">{{ news.title }}</h3>
+            <p class="card-text text-muted small mb-0" style="text-align: justify; text-justify: inter-word;">
+              {{ news.body|striptags|truncatechars:160 }}
+            </p>
+            <a href="{% url 'news' news.hash %}" class="stretched-link" aria-label="Read more: {{ news.title }}"></a>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0">
+            <span class="text-primary small">Read more <i class="fas fa-arrow-right ms-1" aria-hidden="true"></i></span>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="col-12">
+        <div class="alert alert-info mb-0" role="alert">
+          <i class="fas fa-info-circle me-2" aria-hidden="true"></i>No news available at the moment. Please check back later.
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
 
 <script>
   $("#navbar-main > ul > li.active").removeClass("active");

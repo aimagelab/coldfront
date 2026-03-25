@@ -1,6 +1,6 @@
 Dear %s,
 
-welcome to the AImageLab-SRV platform. AImageLab-SRV is an HPC system dedicated to research.
+welcome to the AImageLab-HPC platform. AImageLab-HPC is an HPC system dedicated to research.
 
 *** Access ***
 To log in for the first time, you can make an ssh connection to ailb-login-02.ing.unimore.it or ailb-login-03.ing.unimore.it from a IP address of the University (cable network, WiFi, VPN).
@@ -17,7 +17,7 @@ After the first login, access is allowed through the following modalities:
 The expiration date of your username is currently set to *%s*. If you will need to renew your access to a later date (e.g. because your thesis takes longer or your contract is renewed), open a ticket to request an extension (see below). As a general policy, personal data are deleted after the expiration of a username.
 
 *** Storage ***
-The storage of AImageLab-SRV is shared between all nodes. There are three positions that you can use:
+The storage of AImageLab-HPC is shared between all nodes. There are three positions that you can use:
 - /homes/<username>, personal and resilient area which should be used for storing code, logs and vital data
 - /work/<project>, project-level and high-capacity area which should be used to store datasets and checkpoints
 
@@ -36,7 +36,7 @@ https://ailb-web.ing.unimore.it/
 on how to configure and use your development GPU on Visual Studio Code.
 
 *** Production resources ***
-Beyond development, AImageLab-SRV has a set of GPU-powered nodes administered by SLURM, which deals with queue management and job monitoring.
+Beyond development, AImageLab-HPC has a set of GPU-powered nodes administered by SLURM, which deals with queue management and job monitoring.
 
 For those who have never used SLURM, here is a 101 guide:
 - Request an interactive job with a GPU:

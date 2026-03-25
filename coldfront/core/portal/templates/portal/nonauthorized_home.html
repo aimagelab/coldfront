@@ -6,23 +6,104 @@
 {% block content %}
 {% include "portal/carousel.html" with carousel_list=carousel_list %}
 
-
-<div class="row mt-4">
-  <div class="col">
-    <h2 class="text-center">Log In to {% settings_value 'CENTER_NAME' %}</h2>
-    <hr>
-
-    <p><a class="btn btn-primary btn-block" href="{% url 'login' %}" role="button"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Log In</a></p>
-
-    <div class="card bg-light">
-      <div class="card-body">
-        <h3 class="card-title h5">Do not have an Account?</h3>
-        <p class="card-text" style="text-align: justify;text-justify: inter-word;">{% settings_value 'ACCOUNT_CREATION_TEXT' %}</p>
+<!-- Hero Welcome Banner -->
+<section class="py-5 bg-light bg-gradient border-bottom border-top border-left border-right mb-4">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-12">
+        <h1 class="display-5 fw-bold mb-3">
+          <i class="fas fa-microchip fa-sm me-2" aria-hidden="true"></i>
+          Welcome to <span class="text-primary">{% settings_value 'CENTER_NAME' %}</span>
+        </h1>
+        <p class="lead mb-4 text-muted">
+          The unified hub for all High Performance Computing resources of the <strong>AImageLab</strong> research group.
+          Explore powerful GPU-based resources, manage projects, monitor allocations, and accelerate your scientific discovery.
+        </p>
       </div>
     </div>
   </div>
-  {% include "portal/extra_app_templates.html" %}
-</div>
+</section>
+
+<!-- Full-width Call To Action Section -->
+<section class="w-100 py-5 bg-light bg-gradient border-top border-bottom border-left border-right">
+  <div class="container-fluid px-4">
+    <div class="row g-4 align-items-stretch">
+
+      <!-- Login Column -->
+      <div class="col-12 col-lg-5">
+        <div class="h-100 p-4 p-lg-5 rounded shadow-sm bg-white d-flex flex-column justify-content-between">
+          <div>
+            <h2 class="text-center mb-4">
+              Log In to <span class="text-primary">{% settings_value 'CENTER_NAME' %}</span>
+            </h2>
+            <p class="text-muted text-center mb-4">
+              Access your projects, manage allocations, monitor usage and submit requests.
+            </p>
+          </div>
+          <div>
+            <a class="btn btn-primary btn-lg w-100 mb-3" href="{% url 'login' %}">
+              <i class="fas fa-sign-in-alt me-2" aria-hidden="true"></i>&nbsp;Log In
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider (only on large) -->
+      <div class="d-none d-lg-flex col-lg-1 justify-content-center">
+        <div class="vr h-100 opacity-25"></div>
+      </div>
+
+      <!-- Account Creation Column -->
+      <div class="col-12 col-lg-6">
+        <div class="h-100 p-4 p-lg-5 rounded shadow-sm bg-white">
+          <h3 class="h4 mb-3">
+            <i class="fas fa-user-plus text-primary me-2" aria-hidden="true"></i>
+            New to {% settings_value 'CENTER_NAME' %}?
+          </h3>
+          <p class="mb-4" style="text-align: justify; text-justify: inter-word;">
+            {% settings_value 'ACCOUNT_CREATION_TEXT' %}
+          </p>
+
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <div class="border rounded p-3 h-100">
+                <h4 class="h6 text-uppercase text-muted mb-2">Why Join?</h4>
+                <ul class="small mb-0 ps-3">
+                  <li>Request compute resources</li>
+                  <li>Track project usage</li>
+                  <li>Collaborate with teams</li>
+                </ul>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="border rounded p-3 h-100">
+                <h4 class="h6 text-uppercase text-muted mb-2">Next Steps</h4>
+                <ul class="small mb-0 ps-3">
+                  <li>Submit a username request</li>
+                  <li>Get approval notification</li>
+                  <li>Join existing projects or request computational resources</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          <div class="d-flex flex-column flex-md-row gap-3">
+            <a href="{% url 'onboard' %}" class="btn btn-success flex-fill" tabindex="-1" aria-disabled="true">
+              <i class="fas fa-user-check me-2" aria-hidden="true"></i>&nbsp;Request Access
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Extra App Templates Include (full width below on small screens) -->
+      <div class="col-12">
+        {% include "portal/extra_app_templates.html" %}
+      </div>
+    </div>
+  </div>
+</section>
 {% endblock %}
 
 

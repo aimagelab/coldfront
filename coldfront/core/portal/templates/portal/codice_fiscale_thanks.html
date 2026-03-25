@@ -1,0 +1,14 @@
+{% extends "common/base.html" %}
+{% load static %}
+{% load common_tags %}
+{% block content %}
+<h1>Thank You</h1>
+<p>Your Codice Fiscale has been saved successfully. This information is used strictly for identity verification and administrative purposes within {% settings_value 'CENTER_NAME' %}.</p>
+
+<p class="mb-3">If you believe the saved value is incorrect, please open a support ticket and reference this update:</p>
+<ul>
+  <li><a href="https://ailb-web.ing.unimore.it/tickets/" target="_blank" rel="noopener">Open support ticket</a></li>
+</ul>
+
+<a href="{% url 'home' %}" class="btn btn-primary">Return to Home</a>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "common/base.html" %}
+{% load static %}
+{% load common_tags %}
+{% block content %}
+<h1>Codice Fiscale Update</h1>
+<p class="text-muted">To comply with administrative and identification requirements, we need to associate your <strong>Codice Fiscale</strong> with your account. This information is stored securely in our directory and used only for identity verification within {% settings_value 'CENTER_NAME' %}.</p>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-3">UNIMORE ID</dt><dd class="col-sm-9">{{ unimore_id }}</dd>
+      <dt class="col-sm-3">{% settings_value 'CENTER_NAME' %} Username</dt><dd class="col-sm-9">{% if ldap_username %}{{ ldap_username }}{% else %}<span class="text-muted">Not found</span>{% endif %}</dd>
+      <dt class="col-sm-3">Codice Fiscale</dt><dd class="col-sm-9">{% if prefill_cf %}{{ prefill_cf }}{% else %}<span class="text-muted">Not set</span>{% endif %}</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  We receive your Codice Fiscale from UNIMORE Shibboleth. Please confirm it is correct. If it is wrong or missing, do not proceed and <a href="https://ailb-web.ing.unimore.it/tickets/" target="_blank" rel="noopener">open a support ticket</a>.
+  The saved value will be stored securely in our LDAP directory.
+  
+</div>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if prefill_cf %}
+    <button class="btn btn-primary" type="submit">Confirm and Save</button>
+  {% else %}
+    <button class="btn btn-primary" type="submit" disabled>Confirm and Save</button>
+    <span class="text-danger ms-2">Codice Fiscale not provided by Shibboleth.</span>
+  {% endif %}
+  <a href="{% url 'onboard' %}" class="btn btn-secondary">Cancel</a>
+  
+</form>
+
+<p class="small text-muted mt-3 mb-0">If you encounter any issues, please contact support via the ticket system: <a href="https://ailb-web.ing.unimore.it/tickets/" target="_blank" rel="noopener">Open support ticket</a>.</p>
+{% endblock %}

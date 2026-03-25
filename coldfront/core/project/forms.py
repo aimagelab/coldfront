@@ -250,7 +250,7 @@ class ProjectProposalForm(forms.ModelForm):
         if project_type:
             max_gpu = project_type.max_gpu_hours
             self.fields['requested_gpu_hours'].help_text = (
-                f'How many GPU hours do you need? Maximum for this project type: {max_gpu:,} GPU hours '
+                f'How many GPU hours per year do you need? Maximum for this project type: {max_gpu:,} GPU hours/year '
                 f'(equivalent to {project_type.annual_budget:,} standard budget hours; 1 std hour = 1/6 GPU hour).'
             )
             self.fields['requested_gpu_hours'].widget.attrs['max'] = max_gpu

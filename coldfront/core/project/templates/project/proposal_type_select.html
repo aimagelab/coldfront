@@ -18,7 +18,7 @@
   {% for pt in project_types %}
   {% with max_gpu=pt.max_gpu_hours %}
   <div class="col-md-6 col-lg-4 mb-4">
-    <div class="card h-100 shadow-sm border-0" style="border-top: 4px solid #007bff !important;">
+    <div class="card h-100 shadow-sm border-0 border-top border-primary" style="border-top-width: 4px !important;">
       <div class="card-header bg-white border-0 pb-0">
         <span class="badge badge-primary">{{ pt.code }}</span>
         {% if pt.requires_funded_project_proof %}

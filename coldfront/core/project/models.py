@@ -668,9 +668,11 @@ class ProjectProposal(TimeStampedModel):
     start_date = models.DateField(help_text='Planned project start date.')
     end_date = models.DateField(help_text='Planned project end date.')
     requested_gpu_hours = models.PositiveIntegerField(
-        help_text='Number of GPU hours requested (1 standard budget hour = 1/6 GPU hour).',
+        verbose_name='Requested GPU hours/year',
+        help_text='Number of GPU hours per year requested (1 standard budget hour = 1/6 GPU hour).',
     )
     requested_storage_gb = models.PositiveIntegerField(
+        verbose_name='Requested storage (GB)',
         help_text='Amount of WORK storage requested, in GB.',
     )
     status = models.CharField(

@@ -27,9 +27,9 @@
       Type: <strong>{{ project_type.name }}</strong>{% if project_type.description %} — {{ project_type.description }}{% endif %}
     </p>
     <p class="text-muted small mt-1">
-      Max GPU hours: <strong>{{ project_type.max_gpu_hours }}</strong>
+      Max GPU hours/year: <strong>{{ project_type.max_gpu_hours }}</strong>
       &nbsp;|&nbsp;
-      Std budget hours: <strong>{{ project_type.annual_budget }}</strong>
+      Std budget hours/year: <strong>{{ project_type.annual_budget }}</strong>
     </p>
   </div>
   <div class="col-md-4 text-md-right">
@@ -85,9 +85,9 @@
       <div class="alert alert-info py-2 small mt-2">
         <i class="fas fa-info-circle mr-1"></i>
         1 standard budget hour = 1/6 GPU hour.
-        Maximum GPU hours for <strong>{{ project_type.code }}</strong>:
+        Maximum GPU hours/year for <strong>{{ project_type.code }}</strong>:
         <strong>{{ project_type.max_gpu_hours }}</strong>
-        ({{ project_type.annual_budget }} standard hours).
+        ({{ project_type.annual_budget }} standard hours/year).
       </div>
     </div>
   </div>

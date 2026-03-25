@@ -23,10 +23,9 @@
     {% else %}
       <div class="alert alert-info" role="alert"><i class="fa fa-info-circle" aria-hidden="true"></i> There are no projects to display.</div>
     {% endif %}
-    {% if user.userprofile.is_pi or user.is_superuser %}
     <hr>
-    <a class="btn btn-primary btn-block" href="{% url 'project-create' %}" role="button">Apply for computational resources</a>
-    {% endif %}
+    <a class="btn btn-primary btn-block" href="{% url 'proposal-type-select' %}" role="button">Apply for computational resources</a>
+    <a class="btn btn-outline-secondary btn-sm btn-block mt-1" href="{% url 'proposal-list' %}" role="button">My proposals</a>
   </div>
 
   <div class="col-lg-6 mt-2">

@@ -23,7 +23,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("robots.txt", TemplateView.as_view(template_name="robots.txt", content_type="text/plain"), name="robots"),
     path("", portal_views.home, name="home"),
-    path("center-summary", portal_views.center_summary, name="center-summary"),
     path("allocation-summary", portal_views.allocation_summary, name="allocation-summary"),
     path("allocation-by-fos", portal_views.allocation_by_fos, name="allocation-by-fos"),
     path("user/", include("coldfront.core.user.urls")),
@@ -35,8 +34,14 @@ urlpatterns = [
     path("onboard", portal_views.onboard, name="onboard"),
     path("onboard-process", portal_views.onboard_process, name="onboard-process"),
     path("onboard-external", portal_views.onboard_external, name="onboard-external"),
+    path("codice-fiscale", portal_views.codice_fiscale, name="codice-fiscale"),
+    path("codice-fiscale/thanks", TemplateView.as_view(template_name="portal/codice_fiscale_thanks.html"), name="codice-fiscale-thanks"),
     path("documentation", portal_views.documentation, name="documentation"),
     path('documentation/<str:hash>', portal_views.documentation_article, name="documentation-article"),
+    path("onboarding-requests", portal_views.OnboardingRequestListView.as_view(), name="onboarding-request-list"),
+    path("onboarding-requests/<int:pk>/", portal_views.onboarding_request_detail, name="onboarding-request-detail"),
+    path("onboarding-requests/<int:pk>/approve", portal_views.onboarding_request_approve, name="onboarding-request-approve"),
+    path("onboarding-requests/<int:pk>/reject", portal_views.onboarding_request_reject, name="onboarding-request-reject"),
 ]
 
 if settings.GRANT_ENABLE:

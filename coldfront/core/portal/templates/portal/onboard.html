@@ -7,7 +7,7 @@
   <div class="col-12">
     <h1>Onboarding</h1>
     <p class="lead">
-      Choose how you would like to request access to AImageLab-SRV.
+      Choose how you would like to request access to {% settings_value 'CENTER_NAME' %}.
     </p>
   </div>
 </div>
@@ -24,7 +24,7 @@
       <div class="alert alert-warning">
         <strong>Manual approval required.</strong><br>
         Submitting your data does <em>not</em> grant immediate access. Only users authorized to use
-        <strong>AImageLab-SRV</strong> (e.g. enrolled students of relevant courses, structured personnel,
+        <strong>{% settings_value 'CENTER_NAME' %}</strong> (e.g. enrolled students of relevant courses, structured personnel,
         PhD students, postdocs, and expressly approved collaborators) will be granted access.
         Requests from other accounts will be reviewed and may be denied.
       </div>

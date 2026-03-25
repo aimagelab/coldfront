@@ -3,13 +3,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import operator
+import re
+import unicodedata
 from collections import Counter
 
 from django.conf import settings
 from django.contrib.humanize.templatetags.humanize import intcomma
 from django.db.models import Count, Q, Sum
-from django.http import HttpResponse
-from django.shortcuts import render
+from django.http import HttpResponse, HttpResponseForbidden
+from django.shortcuts import render, get_object_or_404
 from django.views.decorators.cache import cache_page
 from django.utils import timezone
 from django.core.exceptions import ObjectDoesNotExist
@@ -17,8 +19,12 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.core.mail import mail_admins, send_mail
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.views.generic import ListView
 
-from coldfront.core.portal.models import Carousel, News, DocumentationArticle
+from coldfront.core.portal.models import Carousel, News, DocumentationArticle, AccountOnboardingRequest
 from coldfront.core.allocation.models import Allocation, AllocationUser
 from coldfront.core.grant.models import Grant
 from coldfront.core.portal.utils import (
@@ -30,12 +36,27 @@ from coldfront.core.portal.utils import (
 from coldfront.core.project.models import Project
 from coldfront.core.publication.models import Publication
 from coldfront.core.research_output.models import ResearchOutput
-from .forms import OnboardingProcessForm
+from .forms import OnboardingProcessForm, OnboardingRequestSearchForm
 from .models import AccountOnboardingRequest
 from django.http import Http404
 from coldfront.core.utils.common import import_from_settings
+from coldfront.plugins.ldap_groups.ldap_connector import LDAP
+import logging
+
+try:
+    import ldap.filter as ldap_filter
+except Exception:  # pragma: no cover
+    ldap_filter = None
 
 ALLOCATION_EULA_ENABLE = import_from_settings("ALLOCATION_EULA_ENABLE", False)
+
+
+def _sanitize_name_for_username(text):
+    """Strip accents and special characters from a name, preserving spaces and alphanumerics."""
+    text = unicodedata.normalize('NFD', text)
+    text = text.encode('ascii', 'ignore').decode('ascii')
+    text = re.sub(r'[^a-zA-Z0-9 ]', '', text)
+    return text
 
 
 def home(request):
@@ -252,7 +273,11 @@ def news(request, hash):
     return render(request, 'portal/news.html', {'news': news})
 
 def news_list(request):
-    news = News.objects.filter(Q(expiry_date__gte=timezone.now()) | Q(expiry_date__isnull=True)).order_by('-publication_date')
+    now = timezone.now()
+    one_year_ago = now - timezone.timedelta(days=365)
+    news = News.objects.filter(
+        (Q(expiry_date__gte=now) | Q(expiry_date__isnull=True)) & Q(publication_date__gte=one_year_ago)
+    ).order_by('-publication_date')
     return render(request, 'portal/news_list.html', {'news_list': news})
 
 
@@ -279,28 +304,30 @@ def onboard_process(request):
         raise PermissionError("This view is only for unauthenticated users.")
     
     # Shibboleth attribute keys
-    given_name = request.META.get('HTTP_X_REMOTE_FIRSTNAME')
-    surname = request.META.get('HTTP_X_REMOTE_SURNAME')
+    given_name = request.META.get('HTTP_X_REMOTE_FIRSTNAME').title()
+    surname = request.META.get('HTTP_X_REMOTE_SURNAME').title()
     email = request.META.get('HTTP_X_REMOTE_EMAIL')
-    unimore_id = request.META.get('HTTP_X_REMOTE_USER').split('@')[0]
+    unimore_id = request.META.get('HTTP_X_REMOTE_USER')
+    codice_fiscale = request.META.get('HTTP_X_REMOTE_CODICEFISCALE')
 
     # Refuse if a user with this email already exists
+    # TODO this should be done with Codice Fiscale
     if email:
         UserModel = get_user_model()
-        if UserModel.objects.filter(email__iexact=email).exists():
+        if UserModel.objects.filter(email__iexact=email, is_active=True).exists():
             messages.error(
                 request,
                 "An account with this email already exists. If you need changes or access issues resolved, open a support ticket."
             )
             return redirect('onboard')
 
-    # Prevent multiple pending requests (by unimore_id)
+    # Prevent multiple pending requests
     existing_pending = AccountOnboardingRequest.objects.filter(
-        unimore_id=unimore_id,
+        codice_fiscale=codice_fiscale,
         status=AccountOnboardingRequest.STATUS_PENDING
     ).first()
 
-    course_projects = Project.objects.filter(project_type='F').order_by('title')
+    course_projects = Project.objects.filter(project_type__code='F').order_by('title')
 
     if request.method == 'POST':
         if existing_pending:
@@ -310,7 +337,9 @@ def onboard_process(request):
         if form.is_valid():
             req_obj = form.save(commit=False)
             # Generate username base
-            base_username = ''.join([n[0] for n in given_name.split() if n]) + surname.replace(' ', '')
+            clean_given = _sanitize_name_for_username(given_name)
+            clean_surname = _sanitize_name_for_username(surname)
+            base_username = ''.join([n[0] for n in clean_given.split() if n]) + clean_surname.replace(' ', '')
             base_username = base_username.lower()
             username = base_username
             User = get_user_model()
@@ -323,6 +352,7 @@ def onboard_process(request):
             req_obj.surname = surname
             req_obj.email = email
             req_obj.unimore_id = unimore_id
+            req_obj.codice_fiscale = codice_fiscale
 
             # If role is thesis or course, assign a default expiration date in 6 months
             if req_obj.role in [AccountOnboardingRequest.ROLE_THESIS, AccountOnboardingRequest.ROLE_COURSE]:
@@ -341,6 +371,7 @@ UNIMORE ID: {unimore_id}
 Role: {req_obj.role}
 Course: {req_obj.course_project.title if req_obj.course_project else 'N/A'}
 Expiration: {req_obj.expiration_date or 'N/A'}
+Codice Fiscale: {req_obj.codice_fiscale or 'N/A'}
 Submitted at: {req_obj.submitted_at}
 
 Review in admin.
@@ -368,6 +399,7 @@ Review in admin.
             'surname': surname,
             'email': email,
             'unimore_id': unimore_id,
+            'codice_fiscale': codice_fiscale,
             'has_courses': course_projects.exists(),
         }
     )
@@ -383,7 +415,7 @@ def onboard_external(request):
     email = ''
     unimore_id = None  # explicit external
 
-    course_projects = Project.objects.filter(project_type='F').order_by('title')
+    course_projects = Project.objects.filter(project_type__code='F').order_by('title')
 
     if request.method == 'POST':
         form = OnboardingProcessForm(request.POST, request.FILES, course_queryset=course_projects)
@@ -394,15 +426,18 @@ def onboard_external(request):
             given_name = request.POST.get('given_name', '').strip()
             surname = request.POST.get('surname', '').strip()
             email = request.POST.get('email', '').strip()
-            if not given_name or not surname or not email:
-                messages.error(request, 'Name, surname and email are required.')
+            codice_fiscale = request.POST.get('codice_fiscale', '').strip()
+            if not given_name or not surname or not email or not codice_fiscale:
+                messages.error(request, 'Name, surname, email, and Codice Fiscale are required.')
             else:
                 # Ensure no pending external request with same email
                 if AccountOnboardingRequest.objects.filter(email__iexact=email, status=AccountOnboardingRequest.STATUS_PENDING, unimore_id__isnull=True).exists():
                     messages.warning(request, 'You already have a pending request with this email.')
                     return redirect('onboard')
                 # Generate username from names
-                base_username = (given_name.split()[0][0] + surname).lower().replace(' ', '')
+                clean_given = _sanitize_name_for_username(given_name)
+                clean_surname = _sanitize_name_for_username(surname)
+                base_username = (clean_given.split()[0][0] + clean_surname).lower().replace(' ', '')
                 User = get_user_model()
                 candidate = base_username
                 i = 1
@@ -415,6 +450,7 @@ def onboard_external(request):
                 req_obj.surname = surname
                 req_obj.email = email
                 req_obj.unimore_id = None
+                req_obj.codice_fiscale = codice_fiscale
                 # External must have expiration if role demands; thesis/course default 6 months if empty
                 if req_obj.role in [AccountOnboardingRequest.ROLE_THESIS, AccountOnboardingRequest.ROLE_COURSE] and not req_obj.expiration_date:
                     req_obj.expiration_date = timezone.now() + timezone.timedelta(days=180)
@@ -427,6 +463,7 @@ New external onboarding request:
 Generated Username: {candidate}
 Name: {given_name} {surname}
 Email: {email}
+Codice Fiscale: {codice_fiscale}
 Role: {req_obj.role}
 Course: {req_obj.course_project.title if req_obj.course_project else 'N/A'}
 Expiration: {req_obj.expiration_date or 'N/A'}
@@ -452,3 +489,189 @@ Submitted at: {req_obj.submitted_at}
             'has_courses': course_projects.exists(),
         }
     )
+
+def codice_fiscale(request):
+    """Shibboleth-protected view to collect and store Codice Fiscale in LDAP.
+
+    - Requires UNIMORE Shibboleth headers (uses HTTP_X_REMOTE_USER for the UNIMORE ID).
+    - Finds the LDAP user by matching userPassword to "{SASL}<unimore_id>".
+    - Stores the provided Codice Fiscale into the LDAP attribute employeeNumber.
+    """
+    logger = logging.getLogger(__name__)
+
+    # Require Shibboleth-provided identity
+    unimore_id = request.META.get('HTTP_X_REMOTE_USER')
+    cf_from_header = request.META.get('HTTP_X_REMOTE_CODICEFISCALE')
+
+    if not unimore_id:
+        messages.error(request, 'Access requires UNIMORE Shibboleth. Please sign in via the university SSO and retry.')
+        return redirect('onboard')
+
+    if request.method == 'POST':
+        # Do not accept manual input; rely on Shibboleth-provided value
+        cf = (cf_from_header or '').strip().upper()
+        if not cf:
+            messages.error(request, 'Codice Fiscale was not provided by Shibboleth. Please contact support via the ticket system.')
+            return redirect('codice-fiscale')
+
+        try:
+            ldap_client = LDAP()
+            sasl_val = '{SASL}' + unimore_id
+            # Build filter safely
+            if ldap_filter:
+                flt = f'(userPassword={ldap_filter.escape_filter_chars(sasl_val)})'
+            else:
+                flt = f'(userPassword={sasl_val})'
+
+            ldap_client.conn.search(ldap_client.LDAP_USER_SEARCH_BASE, flt, attributes=['uid'])
+            if not ldap_client.conn.entries:
+                messages.error(request, 'Your directory entry was not found. Please contact support.')
+                return redirect('codice-fiscale')
+
+            entry = ldap_client.conn.entries[0]
+            username = entry['uid'].value if 'uid' in entry else None
+            if not username:
+                messages.error(request, 'Directory entry is missing uid; cannot proceed. Contact support.')
+                return redirect('codice-fiscale')
+
+            # Update employeeNumber via helper
+            ldap_client.update_user(username=username, codice_fiscale=cf)
+            return redirect('codice-fiscale-thanks')
+        except Exception as e:
+            logger.exception('Failed updating Codice Fiscale for %s: %s', unimore_id, e)
+            messages.error(request, 'An error occurred while saving your Codice Fiscale. Please try again later or contact support.' + str(e))
+            return redirect('codice-fiscale')
+
+    # GET: render simple informative form
+    ldap_username = None
+    try:
+        ldap_client = LDAP()
+        sasl_val = '{SASL}' + unimore_id
+        flt = f'(userPassword={ldap_filter.escape_filter_chars(sasl_val)})' if ldap_filter else f'(userPassword={sasl_val})'
+        ldap_client.conn.search(ldap_client.LDAP_USER_SEARCH_BASE, flt, attributes=['uid'])
+        if ldap_client.conn.entries:
+            entry = ldap_client.conn.entries[0]
+            ldap_username = entry['uid'].value if 'uid' in entry else None
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning('LDAP lookup failed for %s: %s', unimore_id, e)
+
+    return render(
+        request,
+        'portal/codice_fiscale.html',
+        {
+            'unimore_id': unimore_id,
+            'prefill_cf': cf_from_header or '',
+            'ldap_username': ldap_username,
+        }
+    )
+
+
+_ONBOARDING_SORT_FIELDS = {'username', 'given_name', 'role', 'status', 'submitted_at'}
+
+
+class OnboardingRequestListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    model = AccountOnboardingRequest
+    template_name = 'portal/onboarding_request_list.html'
+    context_object_name = 'onboarding_requests'
+    paginate_by = 25
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def _get_sort_params(self):
+        order_by = self.request.GET.get('order_by', 'submitted_at')
+        direction = self.request.GET.get('direction', 'desc')
+        if order_by not in _ONBOARDING_SORT_FIELDS:
+            order_by = 'submitted_at'
+        if direction not in ('asc', 'desc'):
+            direction = 'desc'
+        return order_by, direction
+
+    def get_queryset(self):
+        qs = AccountOnboardingRequest.objects.select_related('course_project')
+        if not self.request.GET:
+            return qs.filter(status=AccountOnboardingRequest.STATUS_PENDING).order_by('-submitted_at')
+        form = OnboardingRequestSearchForm(self.request.GET)
+        if form.is_valid():
+            data = form.cleaned_data
+            if data.get('username'):
+                qs = qs.filter(username__icontains=data['username'])
+            if data.get('name'):
+                qs = qs.filter(
+                    Q(given_name__icontains=data['name']) | Q(surname__icontains=data['name'])
+                )
+            if data.get('email'):
+                qs = qs.filter(email__icontains=data['email'])
+            if data.get('role'):
+                qs = qs.filter(role=data['role'])
+            if data.get('status'):
+                qs = qs.filter(status=data['status'])
+        order_by, direction = self._get_sort_params()
+        prefix = '' if direction == 'asc' else '-'
+        return qs.order_by(f'{prefix}{order_by}')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = OnboardingRequestSearchForm(self.request.GET)
+        context['search_form'] = form
+
+        # Build filter_parameters string (without sort) to preserve filters across sort/pagination links
+        filter_parameters = ''
+        if form.is_valid():
+            for key, value in form.cleaned_data.items():
+                if value:
+                    filter_parameters += f'{key}={value}&'
+        context['expand_accordion'] = 'show' if filter_parameters else ''
+
+        order_by, direction = self._get_sort_params()
+        context['current_order_by'] = order_by
+        context['current_direction'] = direction
+        # filter_parameters includes sort so pagination preserves both filters and sort order
+        context['filter_parameters'] = filter_parameters + f'order_by={order_by}&direction={direction}'
+        # filter_only_parameters is used by sort links so they don't double-include sort params
+        context['filter_only_parameters'] = filter_parameters.rstrip('&')
+        return context
+
+
+@login_required
+def onboarding_request_detail(request, pk):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    onboarding_request = get_object_or_404(AccountOnboardingRequest, pk=pk)
+    return render(request, 'portal/onboarding_request_detail.html', {'onboarding_request': onboarding_request})
+
+
+@login_required
+def onboarding_request_approve(request, pk):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        return redirect('onboarding-request-list')
+    onboarding_request = get_object_or_404(AccountOnboardingRequest, pk=pk)
+    if onboarding_request.status == AccountOnboardingRequest.STATUS_PENDING:
+        onboarding_request.status = AccountOnboardingRequest.STATUS_APPROVED
+        onboarding_request.processed_at = timezone.now()
+        onboarding_request.save(update_fields=['status', 'processed_at'])
+        messages.success(request, f'Request for {onboarding_request.username} approved.')
+    else:
+        messages.warning(request, f'Request for {onboarding_request.username} is not pending.')
+    return redirect('onboarding-request-detail', pk=pk)
+
+
+@login_required
+def onboarding_request_reject(request, pk):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        return redirect('onboarding-request-list')
+    onboarding_request = get_object_or_404(AccountOnboardingRequest, pk=pk)
+    if onboarding_request.status == AccountOnboardingRequest.STATUS_PENDING:
+        onboarding_request.status = AccountOnboardingRequest.STATUS_REJECTED
+        onboarding_request.processed_at = timezone.now()
+        onboarding_request.rejection_reason = request.POST.get('rejection_reason', '').strip() or None
+        onboarding_request.save(update_fields=['status', 'processed_at', 'rejection_reason'])
+        messages.success(request, f'Request for {onboarding_request.username} rejected.')
+    else:
+        messages.warning(request, f'Request for {onboarding_request.username} is not pending.')
+    return redirect('onboarding-request-detail', pk=pk)

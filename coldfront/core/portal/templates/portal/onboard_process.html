@@ -1,5 +1,6 @@
 {% extends "common/base.html" %}
 {% load static %}
+{% load common_tags %}
 {% block content %}
 <h1>Automatic Onboarding - Confirm Details</h1>
 <p class="text-muted">We received the following data from UNIMORE SSO.</p>
@@ -11,6 +12,7 @@
       <dt class="col-sm-3">Surname</dt><dd class="col-sm-9">{{ surname }}</dd>
       <dt class="col-sm-3">Email</dt><dd class="col-sm-9">{{ email }}</dd>
       <dt class="col-sm-3">UNIMORE ID</dt><dd class="col-sm-9">{{ unimore_id }}</dd>
+      <dt class="col-sm-3">Codice Fiscale</dt><dd class="col-sm-9">{{ codice_fiscale }}</dd>
     </dl>
   </div>
 </div>
@@ -24,7 +26,7 @@
   <h2 class="h5">Before you continue</h2>
   <ul class="small mb-2">
     <li>Select the role that best matches your current academic or contractual status.</li>
-    <li>If you are a student attending a specific course that uses AImageLab-SRV, choose "Student from a course" and then select the course.</li>
+    <li>If you are a student attending a specific course that uses {% settings_value 'CENTER_NAME' %}, choose "Student from a course" and then select the course.</li>
     <li>If you are a thesis student (working on your thesis with a supervisor), choose "Student doing a thesis".</li>
     <li>PhD students, research grant holders, research contract staff, guests and structured personnel must provide the contract/position end (expiration) date.</li>
     <li>If you do not know the exact expiration date, use the official one from your letter/appointment; you can request an update later.</li>
@@ -83,11 +85,17 @@
   const expWrapper = document.getElementById("exp-wrapper");
   const courseWrapper = document.getElementById("course-wrapper");
   const expRequiredRoles = new Set([
-    "PhD Student",
-    "Research grant",
-    "Research contract",
-    "Guest",
-    "Structured personnel"
+    "Studente di Dottorato",
+    "Assegno di Ricerca",
+    "Contratto di Ricerca",
+    "Incarico di Ricerca",
+    "Incarico Post-Doc",
+    "Incarico di Collaborazione",
+    "Ricercatore RTD-A",
+    "Ricercatore RTD-B",
+    "Ricercatore RTT",
+    "Professore Associato",
+    "Professore Ordinario"
   ]);
   function toggleFields(){
     if(!roleSelect) return;
@@ -101,7 +109,7 @@
       if(expInput) expInput.value = '';
     }
     // Course
-    if(role === "Student from a course"){
+    if(role === "Studente da un corso"){
       courseWrapper.style.display = '';
     } else {
       courseWrapper.style.display = 'none';

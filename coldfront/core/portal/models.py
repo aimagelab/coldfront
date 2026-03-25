@@ -82,22 +82,37 @@ class DocumentationArticle(models.Model):
 
 
 class AccountOnboardingRequest(models.Model):
-    ROLE_PHD = 'PhD Student'
-    ROLE_RESEARCH_GRANT = 'Research grant'
-    ROLE_RESEARCH_CONTRACT = 'Research contract'
-    ROLE_GUEST = 'Guest'
-    ROLE_STRUCTURED = 'Structured personnel'
-    ROLE_THESIS = 'Student doing a thesis'
-    ROLE_COURSE = 'Student from a course'
+    # New role values (Italian)
+    ROLE_PHD = 'Studente di Dottorato'
+    ROLE_RESEARCH_GRANT = 'Assegno di Ricerca'
+    ROLE_RESEARCH_CONTRACT = 'Contratto di Ricerca'
+    ROLE_RESEARCH_ASSIGNMENT = 'Incarico di Ricerca'
+    ROLE_POSTDOC_ASSIGNMENT = 'Incarico Post-Doc'
+    ROLE_COLLAB_ASSIGNMENT = 'Incarico di Collaborazione'
+    ROLE_RTD_A = 'Ricercatore RTD-A'
+    ROLE_RTD_B = 'Ricercatore RTD-B'
+    ROLE_RTT = 'Ricercatore RTT'
+    ROLE_ASSOCIATE_PROF = 'Professore Associato'
+    ROLE_FULL_PROF = 'Professore Ordinario'
+    ROLE_THESIS = 'Studente in tesi'
+    ROLE_COURSE = 'Studente da un corso'
+    ROLE_GUEST = 'Ospiti a vario titolo'
 
     ROLE_CHOICES = [
-        (ROLE_PHD, 'PhD Student'),
-        (ROLE_RESEARCH_GRANT, 'Research grant'),
-        (ROLE_RESEARCH_CONTRACT, 'Research contract'),
-        (ROLE_GUEST, 'Guest'),
-        (ROLE_STRUCTURED, 'Structured personnel'),
-        (ROLE_THESIS, 'Student doing a thesis'),
-        (ROLE_COURSE, 'Student from a course'),
+        (ROLE_PHD, 'Studente di Dottorato'),
+        (ROLE_RESEARCH_GRANT, 'Assegno di Ricerca'),
+        (ROLE_RESEARCH_CONTRACT, 'Contratto di Ricerca'),
+        (ROLE_RESEARCH_ASSIGNMENT, 'Incarico di Ricerca'),
+        (ROLE_POSTDOC_ASSIGNMENT, 'Incarico Post-Doc'),
+        (ROLE_COLLAB_ASSIGNMENT, 'Incarico di Collaborazione'),
+        (ROLE_RTD_A, 'Ricercatore RTD-A'),
+        (ROLE_RTD_B, 'Ricercatore RTD-B'),
+        (ROLE_RTT, 'Ricercatore RTT'),
+        (ROLE_ASSOCIATE_PROF, 'Professore Associato'),
+        (ROLE_FULL_PROF, 'Professore Ordinario'),
+        (ROLE_THESIS, 'Studente in tesi'),
+        (ROLE_COURSE, 'Studente da un corso'),
+        (ROLE_GUEST, 'Ospiti a vario titolo'),
     ]
 
     STATUS_PENDING = 'Pending'
@@ -115,6 +130,7 @@ class AccountOnboardingRequest(models.Model):
     email = models.EmailField()
     # For UNIMORE SSO users this is populated; for external users it is blank/NULL
     unimore_id = models.CharField(max_length=150, blank=True, null=True)
+    codice_fiscale = models.CharField(max_length=16, blank=True, null=True)
     role = models.CharField(max_length=40, choices=ROLE_CHOICES)
     expiration_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=STATUS_PENDING)
@@ -127,9 +143,10 @@ class AccountOnboardingRequest(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name='onboarding_requests',
-        help_text='Selected course (project) for users with role "Student from a course".'
+        help_text='Corso (progetto) selezionato per gli utenti con ruolo "Studente da un corso".'
     )
     processed_in_ldap = models.BooleanField(default=False, help_text='Set to true once the LDAP provisioning job has created/updated the directory entry.')
+    rejection_reason = models.TextField(blank=True, null=True, help_text='Optional reason shown to admins when the request is rejected.')
     identity_document = models.FileField(upload_to='identity_documents/', blank=True, null=True,
                                          help_text='Required for users without a UNIMORE account (government-issued ID, student card, etc.).')
 

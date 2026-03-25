@@ -23,6 +23,11 @@
     <input type="email" name="email" class="form-control" value="{{ form.email.value|default_if_none:'' }}" required>
   </div>
   <div class="mb-3">
+    <label class="form-label">Codice Fiscale <span class="text-danger">*</span></label>
+    <input type="text" name="codice_fiscale" class="form-control" value="{{ form.codice_fiscale.value|default_if_none:'' }}" required>
+    <div class="form-text">Enter your Codice Fiscale.</div>
+  </div>
+  <div class="mb-3">
     <label class="form-label">Role <span class="text-danger">*</span></label>
     {{ form.role }}
   </div>
@@ -56,12 +61,22 @@
   const expWrapper = document.getElementById('exp-wrapper');
   const courseWrapper = document.getElementById('course-wrapper');
   const expRequiredRoles = new Set([
-    'PhD Student','Research grant','Research contract','Guest','Structured personnel'
+    "Studente di Dottorato",
+    "Assegno di Ricerca",
+    "Contratto di Ricerca",
+    "Incarico di Ricerca",
+    "Incarico Post-Doc",
+    "Incarico di Collaborazione",
+    "Ricercatore RTD-A",
+    "Ricercatore RTD-B",
+    "Ricercatore RTT",
+    "Professore Associato",
+    "Professore Ordinario"
   ]);
   function toggle(){
     const role = roleSelect.value;
     expWrapper.style.display = expRequiredRoles.has(role) ? '' : 'none';
-    courseWrapper.style.display = (role === 'Student from a course') ? '' : 'none';
+    courseWrapper.style.display = (role === 'Studente da un corso') ? '' : 'none';
   }
   roleSelect.addEventListener('change', toggle);
   toggle();

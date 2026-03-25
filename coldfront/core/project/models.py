@@ -3,11 +3,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import datetime
+import uuid
 from enum import Enum
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.core.validators import MinLengthValidator, MaxLengthValidator
+from django.core.validators import MinLengthValidator, MaxLengthValidator, MinValueValidator, MaxValueValidator
 from django.db import models
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
@@ -52,6 +53,45 @@ class ProjectStatusChoice(TimeStampedModel):
 
     def natural_key(self):
         return (self.name,)
+
+
+class ProjectType(TimeStampedModel):
+    """A project type defines categories of projects with associated budgets.
+
+    Attributes:
+        code (str): Short identifier code (e.g. 'B', 'BI', 'C')
+        name (str): Full descriptive name of the project type
+        annual_budget (int): Default annual budget in standard hours
+        active (bool): Whether this type is available for new projects
+    """
+
+    class Meta:
+        ordering = ["code"]
+
+    code = models.CharField(max_length=10, unique=True)
+    name = models.TextField()
+    description = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional extra description shown to applicants (e.g. comparable allocation schemes).",
+    )
+    annual_budget = models.IntegerField(help_text="Default annual budget in standard hours")
+    active = models.BooleanField(default=True)
+    requires_funded_project_proof = models.BooleanField(
+        default=False,
+        help_text="Whether applicants must upload a funded-project text and approval proof.",
+    )
+    max_duration_months = models.PositiveIntegerField(
+        help_text="Maximum allowed project duration in months.",
+    )
+
+    def __str__(self):
+        return f"[{self.code}] {self.name}"
+
+    @property
+    def max_gpu_hours(self):
+        """Maximum GPU hours available for this type (1 std hour = 1/6 GPU hour)."""
+        return self.annual_budget // 6
 
 
 class Project(TimeStampedModel):
@@ -111,24 +151,13 @@ We do not have information about your research. Please provide a detailed descri
     project_code = models.CharField(max_length=10, blank=True)
     institution = models.CharField(max_length=80, blank=True, default="None")
 
-    # Further field for project proposal
-    # Project type (can be selected from a list), among: 
-    # - Large research project, connected to a national or international competitive project (up to 100.000 standard hours)
-    # - Industrial research project (i.e. "conto terzi") (up to 100.000 standard hours)
-    # - Medium research project, connected to a national competitive project (up to 50.000 standard hours)
-    # - PhD student support project (up to 20.000 standard hours per year)
-    # - MSc thesis project (up to 2.000 GPU hours)
-    # - Support to teaching, including group projects (up to 5.000 GPU hours)
-    PROJECT_TYPE_CHOICES = [
-        ('B', 'Large research project, connected to an european or international competitive project (up to 50.000 GPU hours per year, same size of an ISCRA AI allocation)'),
-        ('BI', 'Large industrial research project (up to 50.000 GPU hours per year, same size of an ISCRA AI allocation)'),
-        ('C', 'Medium research project, connected to a national competitive project or a small industrial research project (up to 10.000 GPU hours per year, same size of an ISCRA C allocation)'),
-        ('T', 'Blue sky project, not connected to a competitive project (up to 5.000 GPU hours)'),
-        ('D', 'PhD student support project (up to 5.000 GPU hours per year)'),
-        ('F', 'Support to teaching, including group projects (up to 5.000 GPU hours)'),
-        ('E', 'MSc thesis project (up to 2.000 GPU hours)'),
-    ]
-    project_type = models.CharField(max_length=2, choices=PROJECT_TYPE_CHOICES, null=True, blank=True)
+    project_type = models.ForeignKey(
+        "ProjectType",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="projects",
+    )
 
     DESCRIPTION_OF_RESEARCH_HELP_TEXT = textwrap.dedent('''\
     This section, including references, cannot exceed 20.000 char and is expected to detail how the specific scientific/computational goals will be achieved and to define detailed workplan.<br />
@@ -554,3 +583,169 @@ class ProjectAttributeUsage(TimeStampedModel):
 
     def __str__(self):
         return "{}: {}".format(self.project_attribute.proj_attr_type.name, self.value)
+
+
+class ProjectProposal(TimeStampedModel):
+    """A project proposal submitted by a user requesting computational resources.
+
+    The proposal goes through a reviewing process before a project is activated.
+
+    Attributes:
+        applicant (User): the user who submitted the proposal
+        project_type (ProjectType): the requested project type
+        title (str): proposed project title
+        description (str): one-line description
+        field_of_science (FieldOfScience): research field
+        description_of_research (str): detailed research description (markdown)
+        computational_approach (str): HPC performance description (markdown)
+        financed_project_text (File): uploaded text of the funded project (if required)
+        funded_project_proof (File): proof of project approval (if required)
+        requested_gpu_hours (int): GPU hours requested (≤ project_type.max_gpu_hours)
+        requested_storage_gb (int): WORK storage requested in GB
+        status (str): current status of the proposal
+    """
+
+    STATUS_PENDING = 'pending'
+    STATUS_UNDER_REVIEW = 'under_review'
+    STATUS_APPROVED = 'approved'
+    STATUS_REJECTED = 'rejected'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_UNDER_REVIEW, 'Under Review'),
+        (STATUS_APPROVED, 'Approved'),
+        (STATUS_REJECTED, 'Rejected'),
+    ]
+
+    class Meta:
+        ordering = ['-created']
+
+    applicant = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='project_proposals',
+    )
+    project_type = models.ForeignKey(
+        ProjectType,
+        on_delete=models.PROTECT,
+        related_name='proposals',
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(
+        validators=[MinLengthValidator(10, 'The description must be > 10 characters.')],
+        help_text='One-line description of the project.',
+    )
+    field_of_science = models.ForeignKey(
+        FieldOfScience,
+        on_delete=models.CASCADE,
+        default=FieldOfScience.DEFAULT_PK,
+    )
+    description_of_research = MartorField(
+        validators=[MaxLengthValidator(20000)],
+        blank=True,
+        null=True,
+        verbose_name='Description of Research',
+        help_text=Project.DESCRIPTION_OF_RESEARCH_HELP_TEXT,
+    )
+    computational_approach = MartorField(
+        validators=[MaxLengthValidator(20000)],
+        blank=True,
+        null=True,
+        verbose_name='Computational Approach',
+        help_text=Project.COMPUTATIONAL_APPROACH_HELP_TEXT,
+    )
+    financed_project_text = models.FileField(
+        upload_to='proposal_financed_project',
+        blank=True,
+        null=True,
+        help_text='Upload the text of the funded/approved project.',
+    )
+    funded_project_proof = models.FileField(
+        upload_to='proposal_funded_proof',
+        blank=True,
+        null=True,
+        help_text='Upload proof that the funded project has been approved (e.g. approval letter).',
+    )
+    start_date = models.DateField(help_text='Planned project start date.')
+    end_date = models.DateField(help_text='Planned project end date.')
+    requested_gpu_hours = models.PositiveIntegerField(
+        help_text='Number of GPU hours requested (1 standard budget hour = 1/6 GPU hour).',
+    )
+    requested_storage_gb = models.PositiveIntegerField(
+        help_text='Amount of WORK storage requested, in GB.',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+    admin_notes = models.TextField(
+        blank=True,
+        default='',
+        help_text='Internal admin notes about the final decision (not shown to the applicant).',
+    )
+
+    def __str__(self):
+        return f'{self.title} ({self.applicant.username}) [{self.get_status_display()}]'
+
+
+class ProposalReview(TimeStampedModel):
+    """A single reviewer assignment on a project proposal.
+
+    Attributes:
+        proposal (ProjectProposal): the proposal being reviewed
+        reviewer (User): the user invited to review
+        review_type (str): 'scientific' or 'technical'
+        status (str): invitation lifecycle — invited → accepted/declined → completed
+        token (UUID): unique secret token sent in the invitation email
+        review_text (str): the reviewer's written assessment
+        score (int): score from 1 (lowest) to 5 (highest)
+    """
+
+    REVIEW_TYPE_SCIENTIFIC = 'scientific'
+    REVIEW_TYPE_TECHNICAL = 'technical'
+    REVIEW_TYPE_CHOICES = [
+        (REVIEW_TYPE_SCIENTIFIC, 'Scientific'),
+        (REVIEW_TYPE_TECHNICAL, 'Technical'),
+    ]
+
+    STATUS_INVITED = 'invited'
+    STATUS_ACCEPTED = 'accepted'
+    STATUS_DECLINED = 'declined'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CHOICES = [
+        (STATUS_INVITED, 'Invited'),
+        (STATUS_ACCEPTED, 'Accepted'),
+        (STATUS_DECLINED, 'Declined'),
+        (STATUS_COMPLETED, 'Completed'),
+    ]
+
+    class Meta:
+        ordering = ['review_type', 'created']
+        unique_together = ('proposal', 'reviewer', 'review_type')
+
+    proposal = models.ForeignKey(
+        ProjectProposal,
+        on_delete=models.CASCADE,
+        related_name='reviews',
+    )
+    reviewer = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='proposal_reviews',
+    )
+    review_type = models.CharField(max_length=20, choices=REVIEW_TYPE_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_INVITED)
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    review_text = models.TextField(blank=True, default='')
+    score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text='Score from 1 (lowest) to 5 (highest).',
+    )
+
+    def __str__(self):
+        return (
+            f'{self.get_review_type_display()} review of "{self.proposal.title}" '
+            f'by {self.reviewer.username} [{self.get_status_display()}]'
+        )

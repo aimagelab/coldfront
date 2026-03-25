@@ -15,17 +15,45 @@ from coldfront.core.project.models import (
     ProjectAttribute,
     ProjectAttributeType,
     ProjectAttributeUsage,
+    ProjectProposal,
     ProjectReview,
     ProjectStatusChoice,
+    ProjectType,
     ProjectUser,
     ProjectUserMessage,
     ProjectUserRoleChoice,
     ProjectUserStatusChoice,
+    ProposalReview,
 )
 from coldfront.core.utils.common import import_from_settings
 
 PROJECT_CODE = import_from_settings("PROJECT_CODE", False)
 PROJECT_INSTITUTION_EMAIL_MAP = import_from_settings("PROJECT_INSTITUTION_EMAIL_MAP", False)
+
+
+@admin.register(ProjectType)
+class ProjectTypeAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "description", "annual_budget", "max_duration_months", "active", "requires_funded_project_proof")
+    list_editable = ("active", "requires_funded_project_proof")
+    ordering = ("code",)
+
+
+@admin.register(ProjectProposal)
+class ProjectProposalAdmin(admin.ModelAdmin):
+    list_display = ("title", "applicant", "project_type", "requested_gpu_hours", "requested_storage_gb", "status", "created")
+    list_filter = ("status", "project_type")
+    search_fields = ("title", "applicant__username", "applicant__first_name", "applicant__last_name")
+    readonly_fields = ("created", "modified", "applicant")
+    ordering = ("-created",)
+
+
+@admin.register(ProposalReview)
+class ProposalReviewAdmin(admin.ModelAdmin):
+    list_display = ("proposal", "reviewer", "review_type", "status", "score", "created")
+    list_filter = ("review_type", "status")
+    search_fields = ("proposal__title", "reviewer__username", "reviewer__first_name", "reviewer__last_name")
+    readonly_fields = ("token", "created", "modified")
+    ordering = ("-created",)
 
 
 @admin.register(ProjectStatusChoice)

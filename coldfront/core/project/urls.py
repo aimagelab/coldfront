@@ -5,6 +5,7 @@
 from django.urls import path
 
 import coldfront.core.project.views as project_views
+import coldfront.core.project.proposal_views as proposal_views
 
 urlpatterns = [
     path("<int:pk>/", project_views.ProjectDetailView.as_view(), name="project-detail"),
@@ -57,4 +58,17 @@ urlpatterns = [
         project_views.ProjectAttributeUpdateView.as_view(),
         name="project-attribute-update",
     ),
+    # --- Project proposal flow (applicant) ---
+    path("proposals/", proposal_views.ProposalListView.as_view(), name="proposal-list"),
+    path("proposals/apply/", proposal_views.ProposalTypeSelectView.as_view(), name="proposal-type-select"),
+    path("proposals/apply/<str:type_code>/", proposal_views.ProposalCreateView.as_view(), name="proposal-create"),
+    path("proposals/<int:pk>/submitted/", proposal_views.ProposalSubmittedView.as_view(), name="proposal-submitted"),
+    # --- Proposal review flow (admin) ---
+    path("proposals/admin/", proposal_views.ProposalAdminListView.as_view(), name="proposal-admin-list"),
+    path("proposals/<int:pk>/admin/", proposal_views.ProposalAdminDetailView.as_view(), name="proposal-admin-detail"),
+    path("proposals/<int:pk>/nominate/", proposal_views.ProposalNominateView.as_view(), name="proposal-nominate"),
+    path("proposals/<int:pk>/decision/", proposal_views.ProposalDecisionView.as_view(), name="proposal-decision"),
+    # --- Proposal review flow (reviewer) ---
+    path("proposals/review/<uuid:token>/", proposal_views.ReviewInvitationView.as_view(), name="review-invitation"),
+    path("proposals/review/<uuid:token>/write/", proposal_views.ReviewWriteView.as_view(), name="review-write"),
 ]

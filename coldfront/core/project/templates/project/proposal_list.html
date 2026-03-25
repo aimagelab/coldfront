@@ -1,0 +1,58 @@
+{% extends "common/base.html" %}
+
+{% block title %}My Project Proposals{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>My Project Proposals</h2>
+  <a href="{% url 'proposal-type-select' %}" class="btn btn-primary">
+    <i class="fas fa-plus mr-1"></i> New proposal
+  </a>
+</div>
+
+{% if proposals %}
+<div class="table-responsive">
+  <table class="table table-hover">
+    <thead class="thead-light">
+      <tr>
+        <th>Title</th>
+        <th>Type</th>
+        <th>GPU hours</th>
+        <th>Storage</th>
+        <th>Status</th>
+        <th>Submitted</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for proposal in proposals %}
+      <tr>
+        <td><strong>{{ proposal.title }}</strong></td>
+        <td>
+          <span class="badge badge-secondary">{{ proposal.project_type.code }}</span>
+        </td>
+        <td>{{ proposal.requested_gpu_hours }}</td>
+        <td>{{ proposal.requested_storage_gb }} GB</td>
+        <td>
+          {% if proposal.status == 'pending' %}
+            <span class="badge badge-secondary">{{ proposal.get_status_display }}</span>
+          {% elif proposal.status == 'under_review' %}
+            <span class="badge badge-info">{{ proposal.get_status_display }}</span>
+          {% elif proposal.status == 'approved' %}
+            <span class="badge badge-success">{{ proposal.get_status_display }}</span>
+          {% elif proposal.status == 'rejected' %}
+            <span class="badge badge-danger">{{ proposal.get_status_display }}</span>
+          {% endif %}
+        </td>
+        <td>{{ proposal.created|date:"Y-m-d" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">
+  You have not submitted any proposals yet.
+  <a href="{% url 'proposal-type-select' %}">Apply for computational resources.</a>
+</div>
+{% endif %}
+{% endblock %}

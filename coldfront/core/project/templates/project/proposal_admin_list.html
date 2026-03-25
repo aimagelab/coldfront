@@ -1,0 +1,78 @@
+{% extends "common/base.html" %}
+
+{% block title %}Proposals — Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Project Proposals</h2>
+</div>
+
+{# Status filter #}
+<div class="mb-3">
+  <div class="btn-group" role="group">
+    <a href="{% url 'proposal-admin-list' %}"
+       class="btn btn-sm {% if not current_status %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+      All
+    </a>
+    {% for value, label in status_choices %}
+    <a href="?status={{ value }}"
+       class="btn btn-sm {% if current_status == value %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+      {{ label }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+{% if proposals %}
+<div class="table-responsive">
+  <table class="table table-hover">
+    <thead class="thead-light">
+      <tr>
+        <th>Title</th>
+        <th>Type</th>
+        <th>Applicant</th>
+        <th>GPU hrs</th>
+        <th>Storage</th>
+        <th>Reviews</th>
+        <th>Status</th>
+        <th>Submitted</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in proposals %}
+      {% with reviews=p.reviews.all %}
+      <tr>
+        <td><strong>{{ p.title }}</strong></td>
+        <td><span class="badge badge-secondary">{{ p.project_type.code }}</span></td>
+        <td>{{ p.applicant.get_full_name|default:p.applicant.username }}</td>
+        <td>{{ p.requested_gpu_hours }}</td>
+        <td>{{ p.requested_storage_gb }} GB</td>
+        <td>
+          {{ reviews.count }} total —
+          {{ reviews|length }} inv.
+          <small class="text-muted">
+            ({{ reviews|dictsort:"status"|first|default:"-" }})
+          </small>
+        </td>
+        <td>
+          {% if p.status == 'pending' %}<span class="badge badge-secondary">{{ p.get_status_display }}</span>
+          {% elif p.status == 'under_review' %}<span class="badge badge-info">{{ p.get_status_display }}</span>
+          {% elif p.status == 'approved' %}<span class="badge badge-success">{{ p.get_status_display }}</span>
+          {% elif p.status == 'rejected' %}<span class="badge badge-danger">{{ p.get_status_display }}</span>
+          {% endif %}
+        </td>
+        <td>{{ p.created|date:"Y-m-d" }}</td>
+        <td>
+          <a href="{% url 'proposal-admin-detail' p.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+        </td>
+      </tr>
+      {% endwith %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">No proposals found.</div>
+{% endif %}
+{% endblock %}

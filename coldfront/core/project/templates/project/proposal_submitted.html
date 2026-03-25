@@ -1,0 +1,45 @@
+{% extends "common/base.html" %}
+
+{% block title %}Proposal Submitted{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+  <div class="mb-4">
+    <i class="fas fa-check-circle fa-5x text-success"></i>
+  </div>
+  <h2>Proposal Submitted Successfully</h2>
+  <p class="lead mt-3">
+    Your proposal <strong>{{ object.title }}</strong> has been received and is now
+    <span class="badge badge-secondary">{{ object.get_status_display }}</span>.
+  </p>
+  <p class="text-muted">
+    It will be reviewed by our scientific and technical committee. You will be notified of the outcome.
+  </p>
+  <hr class="my-4" style="max-width: 400px; margin: auto;">
+  <dl class="row justify-content-center mt-4" style="max-width: 600px; margin: auto;">
+    <dt class="col-sm-4 text-right">Type</dt>
+    <dd class="col-sm-8 text-left">
+      [{{ object.project_type.code }}] {{ object.project_type.name }}
+      {% if object.project_type.description %}
+      <br><small class="text-muted">{{ object.project_type.description }}</small>
+      {% endif %}
+    </dd>
+    <dt class="col-sm-4 text-right">Project dates</dt>
+    <dd class="col-sm-8 text-left">{{ object.start_date }} → {{ object.end_date }}</dd>
+    <dt class="col-sm-4 text-right">GPU hours requested</dt>
+    <dd class="col-sm-8 text-left">{{ object.requested_gpu_hours }}</dd>
+    <dt class="col-sm-4 text-right">Storage requested</dt>
+    <dd class="col-sm-8 text-left">{{ object.requested_storage_gb }} GB</dd>
+    <dt class="col-sm-4 text-right">Submitted on</dt>
+    <dd class="col-sm-8 text-left">{{ object.created|date:"Y-m-d H:i" }}</dd>
+  </dl>
+  <div class="mt-5">
+    <a href="{% url 'proposal-list' %}" class="btn btn-outline-primary mr-2">
+      <i class="fas fa-list mr-1"></i> My proposals
+    </a>
+    <a href="{% url 'proposal-type-select' %}" class="btn btn-outline-secondary">
+      Submit another proposal
+    </a>
+  </div>
+</div>
+{% endblock %}

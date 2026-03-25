@@ -1,0 +1,75 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+  {% if readonly %}Your Review{% else %}Write Review{% endif %} — {{ review.proposal.title }}
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+
+    <div class="mb-3">
+      <a href="{% url 'review-invitation' review.token %}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left mr-1"></i> Back to invitation
+      </a>
+    </div>
+
+    <h2>{% if readonly %}Your Submitted Review{% else %}Write Your Review{% endif %}</h2>
+
+    <div class="card mb-4">
+      <div class="card-header"><strong>Proposal</strong></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Title</dt>
+          <dd class="col-sm-8"><strong>{{ review.proposal.title }}</strong></dd>
+          <dt class="col-sm-4">Type</dt>
+          <dd class="col-sm-8">[{{ review.proposal.project_type.code }}] {{ review.proposal.project_type.name }}</dd>
+          <dt class="col-sm-4">Applicant</dt>
+          <dd class="col-sm-8">{{ review.proposal.applicant.get_full_name|default:review.proposal.applicant.username }}</dd>
+          <dt class="col-sm-4">Your role</dt>
+          <dd class="col-sm-8">{{ review.get_review_type_display }} reviewer</dd>
+        </dl>
+      </div>
+    </div>
+
+    {% if review.proposal.description_of_research %}
+    <div class="card mb-4">
+      <div class="card-header"><strong>Description of Research</strong></div>
+      <div class="card-body small">{{ review.proposal.description_of_research|linebreaksbr }}</div>
+    </div>
+    {% endif %}
+
+    {% if review.proposal.computational_approach %}
+    <div class="card mb-4">
+      <div class="card-header"><strong>Computational Approach</strong></div>
+      <div class="card-body small">{{ review.proposal.computational_approach|linebreaksbr }}</div>
+    </div>
+    {% endif %}
+
+    {% if readonly %}
+    <div class="card mb-4 border-success">
+      <div class="card-header bg-success text-white"><strong>Your review (submitted)</strong></div>
+      <div class="card-body">
+        <p><strong>Score:</strong> {{ review.score }}/5</p>
+        <p class="mb-0">{{ review.review_text|linebreaksbr }}</p>
+      </div>
+    </div>
+    {% else %}
+    <div class="card mb-4">
+      <div class="card-header"><strong>Your review</strong></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          {{ form|crispy }}
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-paper-plane mr-1"></i> Submit review
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

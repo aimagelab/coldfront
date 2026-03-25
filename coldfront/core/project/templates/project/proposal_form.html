@@ -1,0 +1,131 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block css %}
+<link href="{% static 'plugins/css/ace.min.css' %}" type="text/css" media="all" rel="stylesheet" />
+<link href="{% static 'plugins/css/resizable.min.css' %}" type="text/css" media="all" rel="stylesheet" />
+<link href="{% static 'martor/css/martor.bootstrap.min.css' %}" type="text/css" media="all" rel="stylesheet" />
+{% endblock %}
+
+{% block title %}Project Proposal — {{ project_type.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'proposal-type-select' %}">Apply for resources</a></li>
+      <li class="breadcrumb-item active">{{ project_type.code }} — proposal</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-8">
+    <h2>Project Proposal</h2>
+    <p class="text-muted mb-0">
+      Type: <strong>{{ project_type.name }}</strong>{% if project_type.description %} — {{ project_type.description }}{% endif %}
+    </p>
+    <p class="text-muted small mt-1">
+      Max GPU hours: <strong>{{ project_type.max_gpu_hours }}</strong>
+      &nbsp;|&nbsp;
+      Std budget hours: <strong>{{ project_type.annual_budget }}</strong>
+    </p>
+  </div>
+  <div class="col-md-4 text-md-right">
+    <a href="{% url 'proposal-type-select' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="fas fa-arrow-left mr-1"></i> Change type
+    </a>
+  </div>
+</div>
+
+{% if project_type.requires_funded_project_proof %}
+<div class="alert alert-warning">
+  <i class="fas fa-exclamation-triangle mr-1"></i>
+  <strong>Funded project required.</strong>
+  This project type requires that you upload both the text of your funded project and proof of its approval.
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+
+  <div class="card mb-4">
+    <div class="card-header"><strong>Basic Information</strong></div>
+    <div class="card-body">
+      {{ form.title|as_crispy_field }}
+      {{ form.description|as_crispy_field }}
+      {{ form.field_of_science|as_crispy_field }}
+      <div class="row">
+        <div class="col-md-6">{{ form.start_date|as_crispy_field }}</div>
+        <div class="col-md-6">{{ form.end_date|as_crispy_field }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header"><strong>Scientific Description</strong></div>
+    <div class="card-body">
+      {{ form.description_of_research|as_crispy_field }}
+      {{ form.computational_approach|as_crispy_field }}
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header"><strong>Resource Request</strong></div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          {{ form.requested_gpu_hours|as_crispy_field }}
+        </div>
+        <div class="col-md-6">
+          {{ form.requested_storage_gb|as_crispy_field }}
+        </div>
+      </div>
+      <div class="alert alert-info py-2 small mt-2">
+        <i class="fas fa-info-circle mr-1"></i>
+        1 standard budget hour = 1/6 GPU hour.
+        Maximum GPU hours for <strong>{{ project_type.code }}</strong>:
+        <strong>{{ project_type.max_gpu_hours }}</strong>
+        ({{ project_type.annual_budget }} standard hours).
+      </div>
+    </div>
+  </div>
+
+  {% if project_type.requires_funded_project_proof %}
+  <div class="card mb-4">
+    <div class="card-header"><strong>Funded Project Documentation</strong></div>
+    <div class="card-body">
+      {{ form.financed_project_text|as_crispy_field }}
+      {{ form.funded_project_proof|as_crispy_field }}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="d-flex justify-content-between">
+    <a href="{% url 'proposal-type-select' %}" class="btn btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary">
+      <i class="fas fa-paper-plane mr-1"></i> Submit Proposal
+    </button>
+  </div>
+</form>
+
+<script>
+  $(document).ready(function () {
+    $('#id_field_of_science').select2();
+  });
+</script>
+{% endblock %}
+
+{% block javascript %}
+<script type="text/javascript" src="{% static 'plugins/js/ace.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/mode-markdown.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/ext-language_tools.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/theme-github.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/typo.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/spellcheck.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/highlight.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/resizable.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/emojis.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'martor/js/martor.bootstrap.min.js' %}"></script>
+{% endblock %}

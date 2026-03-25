@@ -1,0 +1,91 @@
+{% extends "common/base.html" %}
+
+{% block title %}Review Invitation — {{ review.proposal.title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+
+    <h2>Review Invitation</h2>
+    <p class="lead">
+      You have been invited to provide a
+      <strong>{{ review.get_review_type_display|lower }}</strong> review for the following project proposal.
+    </p>
+    <hr>
+
+    <div class="card mb-4">
+      <div class="card-header"><strong>Proposal Summary</strong></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Title</dt>
+          <dd class="col-sm-8">{{ review.proposal.title }}</dd>
+          <dt class="col-sm-4">Type</dt>
+          <dd class="col-sm-8">
+            [{{ review.proposal.project_type.code }}] {{ review.proposal.project_type.name }}
+            {% if review.proposal.project_type.description %}
+            <br><small class="text-muted">{{ review.proposal.project_type.description }}</small>
+            {% endif %}
+          </dd>
+          <dt class="col-sm-4">Applicant</dt>
+          <dd class="col-sm-8">{{ review.proposal.applicant.get_full_name|default:review.proposal.applicant.username }}</dd>
+          <dt class="col-sm-4">Field of science</dt>
+          <dd class="col-sm-8">{{ review.proposal.field_of_science }}</dd>
+          <dt class="col-sm-4">Project dates</dt>
+          <dd class="col-sm-8">{{ review.proposal.start_date }} → {{ review.proposal.end_date }}</dd>
+          <dt class="col-sm-4">GPU hours requested</dt>
+          <dd class="col-sm-8">{{ review.proposal.requested_gpu_hours }}</dd>
+          <dt class="col-sm-4">Storage requested</dt>
+          <dd class="col-sm-8">{{ review.proposal.requested_storage_gb }} GB</dd>
+        </dl>
+      </div>
+    </div>
+
+    {% if review.proposal.description %}
+    <div class="card mb-4">
+      <div class="card-header"><strong>Description</strong></div>
+      <div class="card-body">{{ review.proposal.description }}</div>
+    </div>
+    {% endif %}
+
+    {# Action area depending on status #}
+    {% if review.status == 'invited' %}
+    <div class="card border-primary mb-4">
+      <div class="card-header bg-primary text-white"><strong>Your response</strong></div>
+      <div class="card-body">
+        <p>Do you accept the invitation to review this proposal?</p>
+        <form method="post">
+          {% csrf_token %}
+          <button type="submit" name="action" value="accept" class="btn btn-success mr-2">
+            <i class="fas fa-check mr-1"></i> Accept
+          </button>
+          <button type="submit" name="action" value="decline" class="btn btn-outline-danger">
+            <i class="fas fa-times mr-1"></i> Decline
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {% elif review.status == 'accepted' %}
+    <div class="alert alert-success">
+      <i class="fas fa-check-circle mr-1"></i>
+      You have accepted this invitation.
+      <a href="{% url 'review-write' review.token %}" class="alert-link ml-2">Write your review &rarr;</a>
+    </div>
+
+    {% elif review.status == 'declined' %}
+    <div class="alert alert-secondary">
+      <i class="fas fa-times-circle mr-1"></i>
+      You declined this invitation.
+    </div>
+
+    {% elif review.status == 'completed' %}
+    <div class="alert alert-success">
+      <i class="fas fa-check-circle mr-1"></i>
+      You have submitted your review for this proposal. Thank you.
+      <a href="{% url 'review-write' review.token %}" class="alert-link ml-2">View your review &rarr;</a>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

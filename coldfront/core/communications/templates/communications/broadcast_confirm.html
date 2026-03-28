@@ -1,0 +1,46 @@
+{% extends "common/base.html" %}
+{% load static %}
+{% load martortags %}
+
+{% block title %}Confirm Broadcast{% endblock %}
+
+{% block content %}
+<h2>Confirm Broadcast</h2>
+<hr>
+
+<div class="alert alert-warning">
+  <i class="fas fa-exclamation-triangle"></i>
+  You are about to send this email to <strong>{{ recipient_count }} active user{{ recipient_count|pluralize }}</strong>.
+  Emails will be sent in batches of 100 per hour. This action cannot be fully undone once started.
+</div>
+
+<div class="card mb-3">
+  <div class="card-header"><strong>Subject:</strong> {{ draft.subject }}</div>
+  <div class="card-body">
+    {{ draft.body|safe_markdown }}
+  </div>
+  <div class="card-footer text-muted small">
+    {% if draft.create_news %}
+      <i class="fas fa-check text-success"></i> A News item will also be published immediately.
+    {% else %}
+      <i class="fas fa-times text-muted"></i> No News item will be created.
+    {% endif %}
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <button type="submit" name="send" class="btn btn-danger">
+    <i class="fas fa-paper-plane"></i> Send to {{ recipient_count }} user{{ recipient_count|pluralize }}
+  </button>
+  <button type="submit" name="cancel" class="btn btn-secondary ml-2">
+    <i class="fas fa-edit"></i> Go back and edit
+  </button>
+</form>
+
+<script>
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-admin").addClass("active");
+  $("#navbar-communications").addClass("active");
+</script>
+{% endblock %}

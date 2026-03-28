@@ -1,0 +1,50 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}New Broadcast{% endblock %}
+
+{% block css %}
+<link href="{% static 'plugins/css/ace.min.css' %}" type="text/css" media="all" rel="stylesheet" />
+<link href="{% static 'plugins/css/resizable.min.css' %}" type="text/css" media="all" rel="stylesheet" />
+<link href="{% static 'martor/css/martor.bootstrap.min.css' %}" type="text/css" media="all" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<h2>New Broadcast</h2>
+<hr>
+
+<div class="alert alert-info">
+  <i class="fas fa-users"></i>
+  This message will be sent to <strong>{{ active_user_count }} active user{{ active_user_count|pluralize }}</strong>.
+  You will be shown a confirmation before anything is sent.
+</div>
+
+<form method="post" autocomplete="off">
+  {% csrf_token %}
+  {{ form|crispy }}
+  <button type="submit" class="btn btn-primary">
+    <i class="fas fa-arrow-right"></i> Preview &amp; Confirm
+  </button>
+  <a href="{% url 'broadcast-list' %}" class="btn btn-secondary ml-2">Cancel</a>
+</form>
+
+<script>
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-admin").addClass("active");
+  $("#navbar-communications").addClass("active");
+</script>
+{% endblock %}
+
+{% block javascript %}
+<script type="text/javascript" src="{% static 'plugins/js/ace.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/mode-markdown.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/ext-language_tools.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/theme-github.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/typo.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/spellcheck.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/highlight.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/resizable.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'plugins/js/emojis.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'martor/js/martor.bootstrap.min.js' %}"></script>
+{% endblock %}

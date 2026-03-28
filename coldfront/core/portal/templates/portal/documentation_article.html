@@ -5,74 +5,237 @@
 {% load humanize %}
 {% load martortags %}
 
-
-{% block title %}
-{{ article.title }} | Documentation
-{% endblock %}
+{% block title %}{{ article.title }} | Documentation{% endblock %}
 
 {% block css %}
 <style>
-  .toc ul {
-    padding-left: 20px;
+  /* ── Page title ─────────────────────────────────────────────────────── */
+  .doc-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.15rem;
+    line-height: 1.2;
+  }
+
+  .doc-meta {
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 1.5rem;
+  }
+
+  /* ── Article body — scoped heading scale ────────────────────────────── */
+  .doc-body h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-top: 2rem;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .doc-body h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.2rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .doc-body h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-top: 1.4rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .doc-body h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-top: 1.1rem;
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #555;
+  }
+
+  .doc-body h5,
+  .doc-body h6 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.3rem;
+    color: #666;
+  }
+
+  /* ── Body typography ─────────────────────────────────────────────────── */
+  .doc-body p {
+    line-height: 1.75;
+    margin-bottom: 0.9rem;
+    color: #333;
+  }
+
+  .doc-body li {
+    line-height: 1.75;
+    margin-bottom: 0.2rem;
+  }
+
+  .doc-body ul,
+  .doc-body ol {
+    margin-bottom: 0.9rem;
+    padding-left: 1.5rem;
+  }
+
+  /* ── Inline code and blocks ─────────────────────────────────────────── */
+  .doc-body code {
+    background: #f5f5f5;
+    border: 1px solid #e8e8e8;
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-size: 0.87em;
+    color: #c7254e;
+  }
+
+  .doc-body pre {
+    background: #f8f8f8;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+  }
+
+  .doc-body pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font-size: 0.88em;
+  }
+
+  /* ── Tables ──────────────────────────────────────────────────────────── */
+  .doc-body table {
+    width: 100%;
+    margin-bottom: 1rem;
+    font-size: 0.92rem;
+  }
+
+  .doc-body table th {
+    background: #f4f4f4;
+    font-weight: 600;
+  }
+
+  /* ── Block quotes ───────────────────────────────────────────────────── */
+  .doc-body blockquote {
+    border-left: 3px solid #ccc;
+    padding: 0.5rem 1rem;
+    margin: 0 0 1rem;
+    color: #555;
+    background: #fafafa;
+  }
+
+  /* ── Horizontal rule ─────────────────────────────────────────────────── */
+  .doc-body hr {
+    margin: 1.5rem 0;
+    border-color: #e8e8e8;
+  }
+
+  /* ── TOC sidebar ─────────────────────────────────────────────────────── */
+  .doc-toc .card {
+    position: sticky;
+    top: 1rem;
+    font-size: 0.88rem;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0;
+  }
+
+  .doc-toc > .card > .card-body > ul > li {
+    margin-bottom: 0.35rem;
+  }
+
+  .doc-toc > .card > .card-body > ul > li > strong > a,
+  .doc-toc > .card > .card-body > ul > li > strong {
+    font-weight: 600;
+    color: #222;
+  }
+
+  .doc-toc ul ul {
+    border-left: 2px solid #e8e8e8;
+    padding-left: 0.85rem;
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .doc-toc ul ul li {
+    margin-bottom: 0.2rem;
+  }
+
+  .doc-toc a {
+    color: #444;
+    text-decoration: none;
+  }
+
+  .doc-toc a:hover {
+    color: #111;
+    text-decoration: underline;
   }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row">
-  <div class="col-md-4 toc">
-    <div class="card mb-3 border-primary">
-      <div class="card-header bg-primary text-white">
-        <i class="fas fa-newspaper" aria-hidden="true"></i> Table of Contents
+
+  {# ── Sidebar TOC ──────────────────────────────────────────────────────── #}
+  <div class="col-md-3 doc-toc">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-dark text-white" style="font-size:0.85rem; font-weight:600; letter-spacing:0.04em; text-transform:uppercase;">
+        Contents
       </div>
-      <div class="card-body">
-        <div class="row">
-          <div class="col-md-12">
+      <div class="card-body py-2 px-3">
+        <ul>
+          {% for a in root_articles %}
+          <li>
+            {% if a.is_empty %}
+              <strong>{{ a.title }}</strong>
+            {% else %}
+              <strong><a href="{% url 'documentation-article' a.hash %}">{{ a.title }}</a></strong>
+            {% endif %}
+            {% if a.children %}
             <ul>
-            {% for a in root_articles %}
-              {% if a.is_empty %}
-                <li><strong>{{ a.title }}</strong> 
-              {% else %}
-                <li><strong><a href="{% url 'documentation-article' a.hash %}">{{ a.title }}</a></strong>
-              {% endif %}
-              {% if a.children %}
-                <ul>
-                  {% for aa in a.children %}
-                    <li><a href="{% url 'documentation-article' aa.hash %}">{{ aa.title }}</a></li>
-                  {% endfor %}
-                </ul>
-              {% endif %}
-              </li>
-            {% endfor %}
+              {% for aa in a.children %}
+              <li><a href="{% url 'documentation-article' aa.hash %}">{{ aa.title }}</a></li>
+              {% endfor %}
             </ul>
-          </div>
-        </div>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
       </div>
     </div>
   </div>
-  <div class="col-md-8">
-    <div class="row">
-      <div class="col-md-12">
-        <h2>{{ article.title }}</h2>
-        <hr>
 
-        {{ article.body|safe_markdown }}
+  {# ── Article content ──────────────────────────────────────────────────── #}
+  <div class="col-md-9">
+    <h1 class="doc-title">{{ article.title }}</h1>
+    <p class="doc-meta">Last updated: {{ article.last_updated|date:"F j, Y" }}</p>
+    <hr style="margin-top:0; margin-bottom:1.5rem;">
 
-        <div class="row">
-          <div class="col-md-12">
-            <p class="text-muted">Last updated: {{ article.last_updated|date:"F j, Y" }}</p>
-          </div>
-        </div>
-      </div>
+    <div class="doc-body">
+      {{ article.body|safe_markdown }}
     </div>
   </div>
+
 </div>
 
 <script>
   $("#navbar-main > ul > li.active").removeClass("active");
   $("#navbar-documentation").addClass("active");
-  $('table').each(function(i){
-    $(this).addClass('table',i);
+  $('table').each(function (i) {
+    $(this).addClass('table table-bordered table-sm', i);
   });
 </script>
 {% endblock %}

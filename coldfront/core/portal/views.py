@@ -274,11 +274,15 @@ def news(request, hash):
 
 def news_list(request):
     now = timezone.now()
-    one_year_ago = now - timezone.timedelta(days=365)
+    query = request.GET.get('q', '').strip()
     news = News.objects.filter(
-        (Q(expiry_date__gte=now) | Q(expiry_date__isnull=True)) & Q(publication_date__gte=one_year_ago)
+        Q(expiry_date__gte=now) | Q(expiry_date__isnull=True)
     ).order_by('-publication_date')
-    return render(request, 'portal/news_list.html', {'news_list': news})
+    if query:
+        news = news.filter(Q(title__icontains=query) | Q(body__icontains=query))
+    paginator = Paginator(news, 12)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'portal/news_list.html', {'page_obj': page_obj, 'query': query})
 
 
 def documentation_article(request, hash):

@@ -28,7 +28,7 @@ class News(models.Model):
     def __str__(self):
         return self.title
     
-    def save(self):
+    def save(self, *args, **kwargs):
         if self.hash is None:
             # Generate a random hash (5 characters), until it is unique
             import random
@@ -37,8 +37,8 @@ class News(models.Model):
             while News.objects.filter(hash=hash).exists():
                 hash = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
             self.hash = hash
-        super().save()
-    
+        super().save(*args, **kwargs)
+
     class Meta:
         verbose_name_plural = 'News'
 
@@ -61,7 +61,7 @@ class DocumentationArticle(models.Model):
     def is_empty(self):
         return len(self.body) == 0
 
-    def save(self):
+    def save(self, *args, **kwargs):
         if self.hash is None:
             # Generate a random hash (5 characters), until it is unique
             import random
@@ -72,7 +72,7 @@ class DocumentationArticle(models.Model):
             self.hash = hash
 
         self.last_updated = timezone.now()
-        super().save()
+        super().save(*args, **kwargs)
             
     def __str__(self):
         return self.title

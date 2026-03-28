@@ -35,16 +35,52 @@
       <div class="card-header"><strong>Proposal Details</strong></div>
       <div class="card-body">
         <dl class="row mb-0">
-          <dt class="col-sm-4">Applicant</dt>
+          <dt class="col-sm-4">Proponent</dt>
           <dd class="col-sm-8">{{ object.applicant.get_full_name|default:object.applicant.username }} ({{ object.applicant.username }})</dd>
+          <dt class="col-sm-4">Principal Investigator</dt>
+          <dd class="col-sm-8">
+            {% if object.pi %}
+              {{ object.pi.get_full_name|default:object.pi.username }} ({{ object.pi.username }})
+            {% else %}
+              <span class="text-muted">{{ object.applicant.get_full_name|default:object.applicant.username }} ({{ object.applicant.username }}) <em>— same as proponent</em></span>
+            {% endif %}
+          </dd>
           <dt class="col-sm-4">Field of science</dt>
           <dd class="col-sm-8">{{ object.field_of_science }}</dd>
           <dt class="col-sm-4">Project dates</dt>
           <dd class="col-sm-8">{{ object.start_date }} → {{ object.end_date }}</dd>
           <dt class="col-sm-4">GPU hours requested</dt>
-          <dd class="col-sm-8">{{ object.requested_gpu_hours }} / {{ object.project_type.max_gpu_hours }} max</dd>
+          <dd class="col-sm-8">
+            {{ object.requested_gpu_hours }} / {{ object.project_type.max_gpu_hours }} max
+            {% if object.approved_gpu_hours and object.approved_gpu_hours != object.requested_gpu_hours %}
+              <span class="badge badge-warning ml-1">approved: {{ object.approved_gpu_hours }}</span>
+            {% endif %}
+          </dd>
           <dt class="col-sm-4">Storage requested</dt>
-          <dd class="col-sm-8">{{ object.requested_storage_gb }} GB</dd>
+          <dd class="col-sm-8">
+            {{ object.requested_storage_gb }} GB
+            {% if object.approved_storage_gb and object.approved_storage_gb != object.requested_storage_gb %}
+              <span class="badge badge-warning ml-1">approved: {{ object.approved_storage_gb }} GB</span>
+            {% endif %}
+          </dd>
+          {% if object.project_code %}
+          <dt class="col-sm-4">Project code</dt>
+          <dd class="col-sm-8"><code>{{ object.project_code }}</code></dd>
+          {% endif %}
+          <dt class="col-sm-4">Research Team</dt>
+          <dd class="col-sm-8">
+            {% with members=object.team_members.all %}
+            {% if members %}
+              <ul class="list-unstyled mb-0">
+                {% for u in members %}
+                <li>{{ u.get_full_name|default:u.username }} ({{ u.username }})</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <span class="text-muted">No additional participants specified.</span>
+            {% endif %}
+            {% endwith %}
+          </dd>
           <dt class="col-sm-4">Submitted</dt>
           <dd class="col-sm-8">{{ object.created|date:"Y-m-d H:i" }}</dd>
         </dl>
@@ -83,6 +119,22 @@
       </div>
     </div>
     {% endif %}
+
+    <div class="card mb-4 border-info">
+      <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <strong>Meta-review</strong>
+        <a href="{% url 'proposal-meta-review' object.pk %}" class="btn btn-sm btn-light">
+          <i class="fas fa-edit mr-1"></i>{% if object.meta_review %}Edit{% else %}Write{% endif %}
+        </a>
+      </div>
+      <div class="card-body">
+        {% if object.meta_review %}
+          {{ object.meta_review|linebreaksbr }}
+        {% else %}
+          <span class="text-muted">No meta-review written yet. A meta-review is required before a decision can be taken.</span>
+        {% endif %}
+      </div>
+    </div>
 
     {% if object.admin_notes %}
     <div class="card mb-4 border-warning">
@@ -138,13 +190,47 @@
       <a href="{% url 'proposal-nominate' object.pk %}" class="btn btn-outline-primary btn-block mb-2">
         <i class="fas fa-user-plus mr-1"></i> Nominate reviewer
       </a>
+      {% if object.meta_review %}
       <a href="{% url 'proposal-decision' object.pk %}" class="btn btn-primary btn-block">
         <i class="fas fa-gavel mr-1"></i> Take decision
       </a>
       {% else %}
+      <a href="{% url 'proposal-meta-review' object.pk %}" class="btn btn-warning btn-block"
+         title="Write a meta-review before taking a decision">
+        <i class="fas fa-exclamation-triangle mr-1"></i> Write meta-review first
+      </a>
+      {% endif %}
+      {% else %}
       <a href="{% url 'proposal-decision' object.pk %}" class="btn btn-outline-secondary btn-block">
         <i class="fas fa-gavel mr-1"></i> Revise decision
       </a>
+      {% endif %}
+      <a href="{% url 'proposal-change-pi' object.pk %}" class="btn btn-outline-secondary btn-block mt-2">
+        <i class="fas fa-user-edit mr-1"></i> Change PI
+      </a>
+      <a href="{% url 'proposal-change-team' object.pk %}" class="btn btn-outline-secondary btn-block mt-2">
+        <i class="fas fa-users mr-1"></i> Change team
+      </a>
+
+      {% if object.status == 'approved' %}
+      <hr class="my-3">
+      {% if provisioned_project %}
+      <a href="{% url 'project-detail' provisioned_project.pk %}" class="btn btn-success btn-block">
+        <i class="fas fa-check-circle mr-1"></i> View project: {{ provisioned_project.title }}
+      </a>
+      {% elif object.project_code %}
+      <form method="post" action="{% url 'proposal-provision' object.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary btn-block"
+                onclick="return confirm('Provision project {{ object.project_code }}?')">
+          <i class="fas fa-rocket mr-1"></i> Provision project
+        </button>
+      </form>
+      {% else %}
+      <div class="alert alert-warning py-2 small mb-0">
+        Set a project code in the decision form before provisioning.
+      </div>
+      {% endif %}
       {% endif %}
     </div>
 

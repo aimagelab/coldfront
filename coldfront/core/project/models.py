@@ -19,6 +19,26 @@ from coldfront.core.utils.common import import_from_settings
 from coldfront.core.utils.validate import AttributeValidator
 import textwrap
 
+_DESCRIPTION_OF_RESEARCH_HELP_TEXT = textwrap.dedent('''\
+    This section, including references, cannot exceed 20.000 char and is expected to detail how the specific scientific/computational goals will be achieved and to define detailed workplan.<br />
+    Proposals will be evaluated on both scientific and technical merit. The provided information should be sufficient for the reviewers in your research field to provide a scientific evaluation of the proposal and to understand if the computational methodology is suitable to reach the project's goals. Furthermore, a general scientific cross-comparison with proposals in other disciplines should be feasible.<br />
+    The list of the topics that MUST be detailed/included follows (please notice that incomplete descriptions will lead to the project rejection).<br />
+    - Scientific framework<br />
+    - Project objectives<br />
+    - Theoretical and computational methods employed<br />
+    - List of the applications to be used and their performance on parallel architectures (scalability and load-balancing)<br />
+    - Detailed workplan and timetable of the activities (GANTT)<br />
+    - Place the proposed research in the context of competing work in your discipline<br />
+    - Explain what scientific advances you expect to be enabled by an award that justifies an allocation of large-scale resources''')
+
+_COMPUTATIONAL_APPROACH_HELP_TEXT = textwrap.dedent('''\
+    Provide quantitative evidence of the HPC performances of the production application you will adopt in the project (scalability, efficiency, \
+I/O performances). Parallel performances in either strong or weak scaling mode should be provided. Weak scaling behaviors are probed by holding \
+per-processor computational work constant (e.g., the size of the mesh on a processor is held constant) as the total problem size grows with number \
+of processors. Strong scaling behaviors are probed by holding the total problem size constant as the processor count grows, thereby decreasing \
+the per-processor computational work. Benchmark data should be provided in either tabular or graphical form, or both; the speedup curve should \
+be supplied as well for strong scaling examples. Where appropriate, characterize the application\'s single-node performance (ex. percent of peak).''')
+
 PROJECT_ENABLE_PROJECT_REVIEW = import_from_settings("PROJECT_ENABLE_PROJECT_REVIEW", False)
 
 
@@ -159,33 +179,15 @@ We do not have information about your research. Please provide a detailed descri
         related_name="projects",
     )
 
-    DESCRIPTION_OF_RESEARCH_HELP_TEXT = textwrap.dedent('''\
-    This section, including references, cannot exceed 20.000 char and is expected to detail how the specific scientific/computational goals will be achieved and to define detailed workplan.<br />
-    Proposals will be evaluated on both scientific and technical merit. The provided information should be sufficient for the reviewers in your research field to provide a scientific evaluation of the proposal and to understand if the computational methodology is suitable to reach the project's goals. Furthermore, a general scientific cross-comparison with proposals in other disciplines should be feasible.<br />
-    The list of the topics that MUST be detailed/included follows (please notice that incomplete descriptions will lead to the project rejection).<br />
-    - Scientific framework<br />
-    - Project objectives<br />
-    - Theoretical and computational methods employed<br />
-    - List of the applications to be used and their performance on parallel architectures (scalability and load-balancing)<br />
-    - Detailed workplan and timetable of the activities (GANTT)<br />
-    - Place the proposed research in the context of competing work in your discipline<br />
-    - Explain what scientific advances you expect to be enabled by an award that justifies an allocation of large-scale resources''')
-    description_of_research = MartorField(validators=[MaxLengthValidator(20000)], blank=True, null=True,
-                                               verbose_name='Description of Research',
-                                               help_text=DESCRIPTION_OF_RESEARCH_HELP_TEXT)
-    
-    COMPUTATIONAL_APPROACH_HELP_TEXT = textwrap.dedent('''\
-    Provide quantitative evidence of the HPC performances of the production application you will adopt in the project (scalability, efficiency, 
-    I/O performances). Parallel performances in either strong or weak scaling mode should be provided. Weak scaling behaviors are probed by holding 
-    per-processor computational work constant (e.g., the size of the mesh on a processor is held constant) as the total problem size grows with number 
-    of processors. Strong scaling behaviors are probed by holding the total problem size constant as the processor count grows, thereby decreasing 
-    the per-processor computational work. Benchmark data should be provided in either tabular or graphical form, or both; the speedup curve should 
-    be supplied as well for strong scaling examples. Where appropriate, characterize the application's single-node performance (ex. percent of peak).''')
-    computational_approach = MartorField(validators=[MaxLengthValidator(20000)], blank=True, null=True,
-                                                  verbose_name='Computational Approach',
-                                                  help_text=COMPUTATIONAL_APPROACH_HELP_TEXT)
-    
-    financed_project_text = models.FileField(upload_to='financed_project_text', blank=True, null=True, help_text='If this project is financed by a grant, please upload the grant text here.')
+    proposal = models.OneToOneField(
+        "ProjectProposal",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="provisioned_project",
+        help_text="The proposal this project was created from, if any.",
+    )
+
 
 
     def clean(self):
@@ -624,6 +626,22 @@ class ProjectProposal(TimeStampedModel):
         on_delete=models.CASCADE,
         related_name='project_proposals',
     )
+    pi = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='proposals_as_pi',
+        verbose_name='Principal Investigator',
+        help_text='The PI who will be responsible for the project. Defaults to the applicant.',
+    )
+    team_members = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='proposal_team_memberships',
+        verbose_name='Research Team',
+        help_text='Additional participants in the project (the PI will be added automatically).',
+    )
     project_type = models.ForeignKey(
         ProjectType,
         on_delete=models.PROTECT,
@@ -644,14 +662,14 @@ class ProjectProposal(TimeStampedModel):
         blank=True,
         null=True,
         verbose_name='Description of Research',
-        help_text=Project.DESCRIPTION_OF_RESEARCH_HELP_TEXT,
+        help_text=_DESCRIPTION_OF_RESEARCH_HELP_TEXT,
     )
     computational_approach = MartorField(
         validators=[MaxLengthValidator(20000)],
         blank=True,
         null=True,
         verbose_name='Computational Approach',
-        help_text=Project.COMPUTATIONAL_APPROACH_HELP_TEXT,
+        help_text=_COMPUTATIONAL_APPROACH_HELP_TEXT,
     )
     financed_project_text = models.FileField(
         upload_to='proposal_financed_project',
@@ -680,11 +698,48 @@ class ProjectProposal(TimeStampedModel):
         choices=STATUS_CHOICES,
         default=STATUS_PENDING,
     )
+    meta_review = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Meta-review',
+        help_text=(
+            'Summary review written by the committee. Visible to the proposer, PI, and team '
+            'only after the final decision is taken. Must be written before a decision can be taken.'
+        ),
+    )
+    project_code = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        verbose_name='Project code',
+        help_text=(
+            'Short identifier assigned by the admin (e.g. h2020_elliot). '
+            'Will become the project title, SLURM account name, and WORK storage group.'
+        ),
+    )
+    approved_gpu_hours = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Approved GPU hours/year',
+        help_text='Admin-approved GPU hours/year (overrides the requested value on provisioning).',
+    )
+    approved_storage_gb = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Approved storage (GB)',
+        help_text='Admin-approved WORK storage in GB (overrides the requested value on provisioning).',
+    )
     admin_notes = models.TextField(
         blank=True,
         default='',
         help_text='Internal admin notes about the final decision (not shown to the applicant).',
     )
+
+    def get_effective_gpu_hours(self):
+        return self.approved_gpu_hours if self.approved_gpu_hours is not None else self.requested_gpu_hours
+
+    def get_effective_storage_gb(self):
+        return self.approved_storage_gb if self.approved_storage_gb is not None else self.requested_storage_gb
 
     def __str__(self):
         return f'{self.title} ({self.applicant.username}) [{self.get_status_display()}]'

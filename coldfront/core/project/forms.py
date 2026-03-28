@@ -217,7 +217,7 @@ class ProjectCreationForm(forms.ModelForm):
 
     class Meta:
         model = Project
-        fields = ["title", "description", "project_type", "field_of_science", "description_of_research", "computational_approach", "financed_project_text"]
+        fields = ["title", "description", "project_type", "field_of_science"]
 
 
 class ProjectProposalForm(forms.ModelForm):
@@ -229,6 +229,8 @@ class ProjectProposalForm(forms.ModelForm):
             "title",
             "description",
             "field_of_science",
+            "pi",
+            "team_members",
             "start_date",
             "end_date",
             "description_of_research",
@@ -246,6 +248,25 @@ class ProjectProposalForm(forms.ModelForm):
     def __init__(self, *args, project_type=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.project_type = project_type
+        self.fields['pi'].queryset = User.objects.order_by(Lower('last_name'), Lower('first_name'))
+        self.fields['pi'].required = False
+        self.fields['pi'].empty_label = '— same as applicant —'
+        self.fields['pi'].label_from_instance = lambda u: (
+            f'{u.get_full_name()} ({u.username})' if u.get_full_name().strip() else u.username
+        )
+        self.fields['pi'].help_text = (
+            'Select the Principal Investigator responsible for the project. '
+            'Leave blank to use yourself as PI.'
+        )
+
+        user_qs = User.objects.order_by(Lower('last_name'), Lower('first_name'))
+        self.fields['team_members'].queryset = user_qs
+        self.fields['team_members'].required = False
+
+        def _user_label(u):
+            return f'{u.get_full_name()} ({u.username})' if u.get_full_name().strip() else u.username
+
+        self.fields['team_members'].label_from_instance = _user_label
 
         if project_type:
             max_gpu = project_type.max_gpu_hours
@@ -388,9 +409,85 @@ class ReviewForm(forms.ModelForm):
         return value
 
 
+class ProposalChangePIForm(forms.Form):
+    """Form for the admin to change (or clear) the PI on a proposal."""
+
+    pi = forms.ModelChoiceField(
+        queryset=User.objects.order_by(Lower('last_name'), Lower('first_name')),
+        required=False,
+        label='Principal Investigator',
+        empty_label='— same as applicant —',
+        help_text='Select a PI, or leave blank to use the applicant as PI.',
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['pi'].label_from_instance = lambda u: (
+            f'{u.get_full_name()} ({u.username})' if u.get_full_name().strip() else u.username
+        )
+
+
+class ProposalMetaReviewForm(forms.ModelForm):
+    """Admin form for writing the committee meta-review before taking a decision."""
+
+    class Meta:
+        model = ProjectProposal
+        fields = ['meta_review']
+        labels = {'meta_review': 'Meta-review'}
+        widgets = {'meta_review': forms.Textarea(attrs={'rows': 10})}
+        help_texts = {
+            'meta_review': (
+                'This text will be shown to the proposer, PI, and research team '
+                'together with the individual reviews, once the final decision is published.'
+            )
+        }
+
+
+class ProposalChangeTeamForm(forms.Form):
+    """Form for the admin to change the research team on a proposal."""
+
+    team_members = forms.ModelMultipleChoiceField(
+        queryset=User.objects.order_by(Lower('last_name'), Lower('first_name')),
+        required=False,
+        label='Research Team',
+        help_text='Select participants (the PI will be added automatically when the project is created).',
+        widget=forms.SelectMultiple,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        def _user_label(u):
+            return f'{u.get_full_name()} ({u.username})' if u.get_full_name().strip() else u.username
+
+        self.fields['team_members'].label_from_instance = _user_label
+
+
 class ProposalDecisionForm(forms.Form):
     """Form for the admin to take a final approve/reject decision on a proposal."""
 
+    project_code = forms.CharField(
+        max_length=64,
+        required=False,
+        label='Project code',
+        help_text=(
+            'Short identifier for the project (e.g. h2020_elliot). '
+            'Will become the project title, SLURM account name, and WORK storage group. '
+            'Required when approving.'
+        ),
+    )
+    approved_gpu_hours = forms.IntegerField(
+        min_value=1,
+        required=False,
+        label='Approved GPU hours/year',
+        help_text='Leave blank to use the requested value.',
+    )
+    approved_storage_gb = forms.IntegerField(
+        min_value=1,
+        required=False,
+        label='Approved storage (GB)',
+        help_text='Leave blank to use the requested value.',
+    )
     decision = forms.ChoiceField(
         choices=[
             (ProjectProposal.STATUS_APPROVED, 'Approve'),
@@ -405,4 +502,11 @@ class ProposalDecisionForm(forms.Form):
         label='Admin notes (internal)',
         help_text='For internal use only. Not shown to the applicant.',
     )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('decision') == ProjectProposal.STATUS_APPROVED:
+            if not cleaned_data.get('project_code', '').strip():
+                self.add_error('project_code', 'A project code is required when approving a proposal.')
+        return cleaned_data
 

@@ -1,0 +1,120 @@
+{% extends "common/base.html" %}
+
+{% block title %}Proposal: {{ object.title }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'proposal-list' %}">My proposals</a></li>
+    <li class="breadcrumb-item active">{{ object.title }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <div>
+    <h2>{{ object.title }}</h2>
+    <p class="text-muted mb-0">
+      [{{ object.project_type.code }}] {{ object.project_type.name }}
+      {% if object.project_type.description %} — {{ object.project_type.description }}{% endif %}
+    </p>
+  </div>
+  <div class="text-right">
+    {% if object.status == 'pending' %}<span class="badge badge-secondary badge-lg">{{ object.get_status_display }}</span>
+    {% elif object.status == 'under_review' %}<span class="badge badge-info badge-lg">{{ object.get_status_display }}</span>
+    {% elif object.status == 'approved' %}<span class="badge badge-success badge-lg">{{ object.get_status_display }}</span>
+    {% elif object.status == 'rejected' %}<span class="badge badge-danger badge-lg">{{ object.get_status_display }}</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+
+    <div class="card mb-4">
+      <div class="card-header"><strong>Proposal Details</strong></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Proponent</dt>
+          <dd class="col-sm-8">{{ object.applicant.get_full_name|default:object.applicant.username }}</dd>
+          <dt class="col-sm-4">Principal Investigator</dt>
+          <dd class="col-sm-8">
+            {% if object.pi %}
+              {{ object.pi.get_full_name|default:object.pi.username }}
+            {% else %}
+              {{ object.applicant.get_full_name|default:object.applicant.username }} <span class="text-muted"><em>(same as proponent)</em></span>
+            {% endif %}
+          </dd>
+          {% with members=object.team_members.all %}
+          {% if members %}
+          <dt class="col-sm-4">Research Team</dt>
+          <dd class="col-sm-8">
+            <ul class="list-unstyled mb-0">
+              {% for u in members %}<li>{{ u.get_full_name|default:u.username }}</li>{% endfor %}
+            </ul>
+          </dd>
+          {% endif %}
+          {% endwith %}
+          <dt class="col-sm-4">Field of science</dt>
+          <dd class="col-sm-8">{{ object.field_of_science }}</dd>
+          <dt class="col-sm-4">Project dates</dt>
+          <dd class="col-sm-8">{{ object.start_date }} → {{ object.end_date }}</dd>
+          <dt class="col-sm-4">GPU hours requested</dt>
+          <dd class="col-sm-8">{{ object.requested_gpu_hours }}</dd>
+          <dt class="col-sm-4">Storage requested</dt>
+          <dd class="col-sm-8">{{ object.requested_storage_gb }} GB</dd>
+          <dt class="col-sm-4">Submitted</dt>
+          <dd class="col-sm-8">{{ object.created|date:"Y-m-d" }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    {% if not decided %}
+    <div class="alert alert-info">
+      <i class="fas fa-hourglass-half mr-1"></i>
+      Your proposal is currently under evaluation. Reviews and the committee's assessment will be shown here once a decision is made.
+    </div>
+    {% endif %}
+
+    {% if decided %}
+
+    <div class="card mb-4 {% if object.status == 'approved' %}border-success{% else %}border-danger{% endif %}">
+      <div class="card-header {% if object.status == 'approved' %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+        <strong>Decision: {{ object.get_status_display }}</strong>
+      </div>
+      <div class="card-body">
+        {% if object.meta_review %}
+        <h6 class="card-title">Committee Meta-review</h6>
+        <p class="card-text">{{ object.meta_review|linebreaksbr }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if reviews %}
+    <div class="card mb-4">
+      <div class="card-header"><strong>Individual Reviews</strong></div>
+      <ul class="list-group list-group-flush">
+        {% for review in reviews %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <div>
+              <span class="badge badge-{% if review.review_type == 'scientific' %}info{% else %}secondary{% endif %} mr-1">
+                {{ review.get_review_type_display }}
+              </span>
+              <strong>{{ review.reviewer.get_full_name|default:review.reviewer.username }}</strong>
+            </div>
+            <span class="badge badge-primary">{{ review.score }}/5</span>
+          </div>
+          {% if review.review_text %}
+          <p class="mb-0 mt-1 text-muted">{{ review.review_text|linebreaksbr }}</p>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% endif %}{# decided #}
+
+  </div>
+</div>
+{% endblock %}

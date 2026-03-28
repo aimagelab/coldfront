@@ -40,9 +40,9 @@ class ProjectTypeAdmin(admin.ModelAdmin):
 
 @admin.register(ProjectProposal)
 class ProjectProposalAdmin(admin.ModelAdmin):
-    list_display = ("title", "applicant", "project_type", "requested_gpu_hours", "requested_storage_gb", "status", "created")
+    list_display = ("title", "applicant", "pi", "project_type", "requested_gpu_hours", "requested_storage_gb", "status", "created")
     list_filter = ("status", "project_type")
-    search_fields = ("title", "applicant__username", "applicant__first_name", "applicant__last_name")
+    search_fields = ("title", "applicant__username", "applicant__first_name", "applicant__last_name", "pi__username", "pi__first_name", "pi__last_name")
     readonly_fields = ("created", "modified", "applicant")
     ordering = ("-created",)
 

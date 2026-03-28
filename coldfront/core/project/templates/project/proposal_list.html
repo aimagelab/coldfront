@@ -17,6 +17,7 @@
       <tr>
         <th>Title</th>
         <th>Type</th>
+        <th>Your role</th>
         <th>GPU hours</th>
         <th>Storage</th>
         <th>Status</th>
@@ -25,10 +26,17 @@
     </thead>
     <tbody>
       {% for proposal in proposals %}
-      <tr>
+      <tr class="clickable-row" data-href="{% url 'proposal-detail' proposal.pk %}" style="cursor:pointer;">
         <td><strong>{{ proposal.title }}</strong></td>
+        <td><span class="badge badge-secondary">{{ proposal.project_type.code }}</span></td>
         <td>
-          <span class="badge badge-secondary">{{ proposal.project_type.code }}</span>
+          {% if proposal.applicant == user %}
+            Proponent
+          {% elif proposal.pi == user %}
+            PI
+          {% else %}
+            Participant
+          {% endif %}
         </td>
         <td>{{ proposal.requested_gpu_hours }}</td>
         <td>{{ proposal.requested_storage_gb }} GB</td>
@@ -55,4 +63,14 @@
   <a href="{% url 'proposal-type-select' %}">Apply for computational resources.</a>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block javascript %}
+<script>
+  $(document).ready(function () {
+    $('.clickable-row').on('click', function () {
+      window.location = $(this).data('href');
+    });
+  });
+</script>
 {% endblock %}

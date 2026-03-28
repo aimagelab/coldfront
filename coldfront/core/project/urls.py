@@ -63,11 +63,16 @@ urlpatterns = [
     path("proposals/apply/", proposal_views.ProposalTypeSelectView.as_view(), name="proposal-type-select"),
     path("proposals/apply/<str:type_code>/", proposal_views.ProposalCreateView.as_view(), name="proposal-create"),
     path("proposals/<int:pk>/submitted/", proposal_views.ProposalSubmittedView.as_view(), name="proposal-submitted"),
+    path("proposals/<int:pk>/", proposal_views.ProposalStakeholderDetailView.as_view(), name="proposal-detail"),
     # --- Proposal review flow (admin) ---
     path("proposals/admin/", proposal_views.ProposalAdminListView.as_view(), name="proposal-admin-list"),
     path("proposals/<int:pk>/admin/", proposal_views.ProposalAdminDetailView.as_view(), name="proposal-admin-detail"),
     path("proposals/<int:pk>/nominate/", proposal_views.ProposalNominateView.as_view(), name="proposal-nominate"),
+    path("proposals/<int:pk>/meta-review/", proposal_views.ProposalMetaReviewView.as_view(), name="proposal-meta-review"),
     path("proposals/<int:pk>/decision/", proposal_views.ProposalDecisionView.as_view(), name="proposal-decision"),
+    path("proposals/<int:pk>/change-pi/", proposal_views.ProposalChangePIView.as_view(), name="proposal-change-pi"),
+    path("proposals/<int:pk>/change-team/", proposal_views.ProposalChangeTeamView.as_view(), name="proposal-change-team"),
+    path("proposals/<int:pk>/provision/", proposal_views.ProposalProvisionView.as_view(), name="proposal-provision"),
     # --- Proposal review flow (reviewer) ---
     path("proposals/review/<uuid:token>/", proposal_views.ReviewInvitationView.as_view(), name="review-invitation"),
     path("proposals/review/<uuid:token>/write/", proposal_views.ReviewWriteView.as_view(), name="review-write"),

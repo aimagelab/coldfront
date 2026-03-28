@@ -1,0 +1,41 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Change PI — {{ proposal.title }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'proposal-admin-list' %}">Proposals</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'proposal-admin-detail' proposal.pk %}">{{ proposal.title }}</a></li>
+    <li class="breadcrumb-item active">Change PI</li>
+  </ol>
+</nav>
+
+<h3>Change Principal Investigator</h3>
+<p class="text-muted">
+  Proposal: <strong>{{ proposal.title }}</strong><br>
+  Applicant (proponent): <strong>{{ proposal.applicant.get_full_name|default:proposal.applicant.username }} ({{ proposal.applicant.username }})</strong>
+</p>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form|crispy }}
+      <div class="d-flex justify-content-between mt-3">
+        <a href="{% url 'proposal-admin-detail' proposal.pk %}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+  $(document).ready(function () {
+    $('#id_pi').select2({ placeholder: '— same as applicant —', allowClear: true });
+  });
+</script>
+{% endblock %}

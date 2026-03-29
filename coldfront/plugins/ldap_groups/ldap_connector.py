@@ -83,6 +83,17 @@ class LDAP:
         search_filter='(|(&(objectClass=*)(uid=%s)))' % username
         self.conn.search(self.LDAP_USER_SEARCH_BASE, search_filter, attributes=['mail',])
         return self.conn.entries[0]['mail'][0]
+
+    def get_names(self, username):
+        """Return (first_name, last_name) for a user from LDAP, or ('', '') if not found."""
+        search_filter = '(|(&(objectClass=*)(uid=%s)))' % username
+        self.conn.search(self.LDAP_USER_SEARCH_BASE, search_filter, attributes=['givenName', 'sn'])
+        if not self.conn.entries:
+            return '', ''
+        entry = self.conn.entries[0]
+        first = entry['givenName'][0] if entry['givenName'] else ''
+        last = entry['sn'][0] if entry['sn'] else ''
+        return first, last
     
     # ---------------------------------------------------------------------
     # User CRUD operations needed for onboarding / account provisioning

@@ -140,14 +140,6 @@ class Command(BaseCommand):
                     'User %s should be removed from LDAP group: %s', user.username, g)
                 self.remove_group(user, g, status)
 
-        # Lastly, update user e-mail from LDAP
-        try:
-            user.email = self.ldap.get_email(user.username)
-            user.save()
-        except Exception as e:
-            logger.error('Failed to update user e-mail: %s - %s',
-                         user.username, e)
-
     def process_user(self, user):
         if self.filter_user and self.filter_user != user.username:
             return
@@ -256,4 +248,19 @@ class Command(BaseCommand):
             self.filter_group = options['group']
 
         for user in users:
+            if self.sync and not self.noop:
+                try:
+                    user.email = self.ldap.get_email(user.username)
+                    user.save(update_fields=['email'])
+                except Exception as e:
+                    logger.error('Failed to update user e-mail: %s - %s', user.username, e)
+
+                try:
+                    first_name, last_name = self.ldap.get_names(user.username)
+                    if first_name or last_name:
+                        user.first_name = first_name
+                        user.last_name = last_name
+                        user.save(update_fields=['first_name', 'last_name'])
+                except Exception as e:
+                    logger.error('Failed to update user name: %s - %s', user.username, e)
             self.process_user(user)

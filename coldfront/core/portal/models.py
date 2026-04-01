@@ -55,7 +55,7 @@ class DocumentationArticle(models.Model):
 
     @property
     def children(self):
-        return DocumentationArticle.objects.filter(parent=self, active=True)
+        return DocumentationArticle.objects.filter(parent=self, active=True).order_by('order')
 
     @property
     def is_empty(self):

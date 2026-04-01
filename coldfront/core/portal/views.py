@@ -36,9 +36,10 @@ from coldfront.core.portal.utils import (
 from coldfront.core.project.models import Project
 from coldfront.core.publication.models import Publication
 from coldfront.core.research_output.models import ResearchOutput
-from .forms import OnboardingProcessForm, OnboardingRequestSearchForm
+from .forms import OnboardingProcessForm, OnboardingRequestSearchForm, OnboardingApproveForm
 from .models import AccountOnboardingRequest
 from django.http import Http404
+from django.urls import reverse
 from coldfront.core.utils.common import import_from_settings
 from coldfront.plugins.ldap_groups.ldap_connector import LDAP
 import logging
@@ -300,6 +301,27 @@ def documentation(request):
     root_articles = DocumentationArticle.objects.filter(parent=None, active=True).order_by('order')
     return render(request, 'portal/documentation_article.html', {'article': article, 'root_articles': root_articles})
 
+def team(request):
+    return render(request, 'portal/team.html')
+
+def documentation_search(request):
+    query = request.GET.get('q', '').strip()
+    root_articles = DocumentationArticle.objects.filter(parent=None, active=True).order_by('order')
+    results = []
+    if query:
+        results = (
+            DocumentationArticle.objects
+            .filter(active=True)
+            .filter(Q(title__icontains=query) | Q(body__icontains=query))
+            .select_related('parent')
+            .order_by('parent__order', 'order')
+        )
+    return render(request, 'portal/documentation_article.html', {
+        'root_articles': root_articles,
+        'search_query': query,
+        'search_results': results,
+    })
+
 def onboard(request):
     if request.user.is_authenticated:
         messages.info(request, "You already have an account.")
@@ -379,22 +401,22 @@ def onboard_process(request):
 
             req_obj.save()
             # Notify admins
-            subject = "[Onboarding] New account request"
-            body = f"""
-New onboarding request:
+            center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
+            subject = f"[{center_name}] New onboarding request"
+            review_url = request.build_absolute_uri(reverse('onboarding-request-detail', args=[req_obj.pk]))
+            body = f"""New onboarding request submitted and awaiting review.
 
-Generated Username: {username}
-Name: {given_name} {surname}
-Email: {email}
-UNIMORE ID: {unimore_id}
-Role: {req_obj.role}
-Course: {req_obj.course_project.title if req_obj.course_project else 'N/A'}
-Expiration: {req_obj.expiration_date or 'N/A'}
-Codice Fiscale: {req_obj.codice_fiscale or 'N/A'}
-Submitted at: {req_obj.submitted_at}
+  Username   : {username}
+  Name       : {given_name} {surname}
+  Email      : {email}
+  UNIMORE ID : {unimore_id}
+  Role       : {req_obj.role}
+  Course     : {req_obj.course_project.title if req_obj.course_project else 'N/A'}
+  Expiration : {req_obj.expiration_date or 'N/A'}
+  CF         : {req_obj.codice_fiscale or 'N/A'}
+  Submitted  : {req_obj.submitted_at:%Y-%m-%d %H:%M}
 
-Review in admin.
-""".strip()
+Review here: {review_url}""".strip()
             notify_list = getattr(settings, 'ACCOUNT_REQUEST_NOTIFY', [])
             if notify_list:
                 try:
@@ -501,19 +523,21 @@ def onboard_external(request):
                     req_obj.expiration_date = timezone.now() + timezone.timedelta(days=180)
                 req_obj.save()
                 # Notify admins
-                subject = "[Onboarding] New EXTERNAL account request"
-                body = f"""
-New external onboarding request:
+                center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
+                subject = f"[{center_name}] New external onboarding request"
+                review_url = request.build_absolute_uri(reverse('onboarding-request-detail', args=[req_obj.pk]))
+                body = f"""New external onboarding request submitted and awaiting review.
 
-Generated Username: {candidate}
-Name: {given_name} {surname}
-Email: {email}
-Codice Fiscale: {codice_fiscale}
-Role: {req_obj.role}
-Course: {req_obj.course_project.title if req_obj.course_project else 'N/A'}
-Expiration: {req_obj.expiration_date or 'N/A'}
-Submitted at: {req_obj.submitted_at}
-""".strip()
+  Username   : {candidate}
+  Name       : {given_name} {surname}
+  Email      : {email}
+  CF         : {codice_fiscale}
+  Role       : {req_obj.role}
+  Course     : {req_obj.course_project.title if req_obj.course_project else 'N/A'}
+  Expiration : {req_obj.expiration_date or 'N/A'}
+  Submitted  : {req_obj.submitted_at:%Y-%m-%d %H:%M}
+
+Review here: {review_url}""".strip()
                 notify_list = getattr(settings, 'ACCOUNT_REQUEST_NOTIFY', [])
                 if notify_list:
                     try:
@@ -684,7 +708,15 @@ def onboarding_request_detail(request, pk):
     if not request.user.is_superuser:
         return HttpResponseForbidden()
     onboarding_request = get_object_or_404(AccountOnboardingRequest, pk=pk)
-    return render(request, 'portal/onboarding_request_detail.html', {'onboarding_request': onboarding_request})
+    approve_form = OnboardingApproveForm(initial={
+        'role': onboarding_request.role,
+        'expiration_date': onboarding_request.expiration_date,
+        'course_project': onboarding_request.course_project,
+    })
+    return render(request, 'portal/onboarding_request_detail.html', {
+        'onboarding_request': onboarding_request,
+        'approve_form': approve_form,
+    })
 
 
 @login_required
@@ -695,13 +727,59 @@ def onboarding_request_approve(request, pk):
         return redirect('onboarding-request-list')
     onboarding_request = get_object_or_404(AccountOnboardingRequest, pk=pk)
     if onboarding_request.status == AccountOnboardingRequest.STATUS_PENDING:
+        form = OnboardingApproveForm(request.POST)
+        if not form.is_valid():
+            approve_form = form
+            return render(request, 'portal/onboarding_request_detail.html', {
+                'onboarding_request': onboarding_request,
+                'approve_form': approve_form,
+            })
+        onboarding_request.role = form.cleaned_data['role']
+        onboarding_request.expiration_date = form.cleaned_data['expiration_date']
+        onboarding_request.course_project = form.cleaned_data['course_project']
         onboarding_request.status = AccountOnboardingRequest.STATUS_APPROVED
         onboarding_request.processed_at = timezone.now()
-        onboarding_request.save(update_fields=['status', 'processed_at'])
+        onboarding_request.save(update_fields=['role', 'expiration_date', 'course_project', 'status', 'processed_at'])
         messages.success(request, f'Request for {onboarding_request.username} approved.')
     else:
         messages.warning(request, f'Request for {onboarding_request.username} is not pending.')
     return redirect('onboarding-request-detail', pk=pk)
+
+
+def _send_onboarding_rejection_email(onboarding_request):
+    help_url = getattr(settings, 'CENTER_HELP_URL', '')
+    helpdesk_address = getattr(settings, 'EMAIL_TICKET_SYSTEM_ADDRESS', '')
+    center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+
+    if help_url:
+        helpdesk_line = f"If you have questions or believe this decision was made in error, please contact the Helpdesk: {help_url}"
+    elif helpdesk_address:
+        helpdesk_line = f"If you have questions or believe this decision was made in error, please contact the Helpdesk at {helpdesk_address}"
+    else:
+        helpdesk_line = "If you have questions or believe this decision was made in error, please contact the Helpdesk."
+
+    reason_section = (
+        f"\nReason:\n{onboarding_request.rejection_reason}\n"
+        if onboarding_request.rejection_reason
+        else "\nNo specific reason was provided.\n"
+    )
+
+    body = f"""\
+Dear {onboarding_request.given_name} {onboarding_request.surname},
+
+We regret to inform you that your account request at {center_name} has been rejected.
+{reason_section}
+{helpdesk_line}
+
+The {center_name} Team
+""".strip()
+
+    subject = f"[{center_name}] Account request rejected"
+    try:
+        send_mail(subject, body, from_email, [onboarding_request.email], fail_silently=True)
+    except Exception:
+        pass
 
 
 @login_required
@@ -716,6 +794,7 @@ def onboarding_request_reject(request, pk):
         onboarding_request.processed_at = timezone.now()
         onboarding_request.rejection_reason = request.POST.get('rejection_reason', '').strip() or None
         onboarding_request.save(update_fields=['status', 'processed_at', 'rejection_reason'])
+        _send_onboarding_rejection_email(onboarding_request)
         messages.success(request, f'Request for {onboarding_request.username} rejected.')
     else:
         messages.warning(request, f'Request for {onboarding_request.username} is not pending.')

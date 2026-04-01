@@ -196,6 +196,14 @@
         Contents
       </div>
       <div class="card-body py-2 px-3">
+        <form method="get" action="{% url 'documentation-search' %}" class="mb-3">
+          <div class="input-group input-group-sm">
+            <input type="text" name="q" class="form-control" placeholder="Search…" value="{{ search_query|default:'' }}">
+            <div class="input-group-append">
+              <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
+            </div>
+          </div>
+        </form>
         <ul>
           {% for a in root_articles %}
           <li>
@@ -220,13 +228,35 @@
 
   {# ── Article content ──────────────────────────────────────────────────── #}
   <div class="col-md-9">
-    <h1 class="doc-title">{{ article.title }}</h1>
-    <p class="doc-meta">Last updated: {{ article.last_updated|date:"F j, Y" }}</p>
-    <hr style="margin-top:0; margin-bottom:1.5rem;">
-
-    <div class="doc-body">
-      {{ article.body|safe_markdown }}
-    </div>
+    {% if search_results is not None %}
+      <h1 class="doc-title">
+        {% if search_query %}Search: "{{ search_query }}"{% else %}Search{% endif %}
+      </h1>
+      <hr style="margin-top:0; margin-bottom:1.5rem;">
+      {% if search_query %}
+        {% if search_results %}
+          <ul class="list-unstyled">
+            {% for r in search_results %}
+            <li class="mb-3">
+              <a href="{% url 'documentation-article' r.hash %}" style="font-weight:600; font-size:1.05rem;">{{ r.title }}</a>
+              {% if r.parent %}
+                <span class="text-muted" style="font-size:0.85rem;"> — {{ r.parent.title }}</span>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">No articles found for <strong>{{ search_query }}</strong>.</p>
+        {% endif %}
+      {% endif %}
+    {% else %}
+      <h1 class="doc-title">{{ article.title }}</h1>
+      <p class="doc-meta">Last updated: {{ article.last_updated|date:"F j, Y" }}</p>
+      <hr style="margin-top:0; margin-bottom:1.5rem;">
+      <div class="doc-body">
+        {{ article.body|safe_markdown }}
+      </div>
+    {% endif %}
   </div>
 
 </div>

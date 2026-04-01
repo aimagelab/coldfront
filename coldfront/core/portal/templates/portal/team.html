@@ -1,0 +1,162 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Team | AImageLab-HPC{% endblock %}
+
+{% block css %}
+<style>
+  .team-hero {
+    padding: 3rem 0 2rem;
+    border-bottom: 1px solid #e8e8e8;
+    margin-bottom: 3rem;
+  }
+
+  .team-hero h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .team-hero p {
+    color: #555;
+    font-size: 1.05rem;
+    max-width: 600px;
+  }
+
+  .team-card {
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 2rem;
+    height: 100%;
+    transition: box-shadow 0.2s ease;
+  }
+
+  .team-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.09);
+  }
+
+  .team-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: top;
+    border: 3px solid #e8e8e8;
+    margin-bottom: 1.25rem;
+  }
+
+  .team-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.15rem;
+  }
+
+  .team-role {
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #007bff;
+    margin-bottom: 1rem;
+  }
+
+  .team-responsibilities {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .team-responsibilities li {
+    font-size: 0.92rem;
+    color: #444;
+    padding: 0.3rem 0;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .team-responsibilities li:first-child {
+    border-top: none;
+  }
+
+  .team-responsibilities li i {
+    color: #007bff;
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+  }
+
+  .team-contact {
+    margin-top: 3rem;
+    padding: 1.5rem 2rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+  }
+
+  .team-contact p {
+    margin: 0;
+    color: #444;
+    font-size: 0.95rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="team-hero">
+  <h1><i class="fas fa-users" aria-hidden="true"></i> The Team</h1>
+  <p>AImageLab-HPC is designed, built, and maintained by a small dedicated team within the AImageLab laboratory at the University of Modena and Reggio Emilia.</p>
+</div>
+
+<div class="row">
+
+  <div class="col-md-6 mb-4">
+    <div class="team-card text-center">
+      <img
+        src="https://aimagelab.unimore.it/media/avatars/lbaraldi_iris_photo_lE2JZNx.jpg"
+        alt="Lorenzo Baraldi"
+        class="team-avatar"
+      >
+      <div class="team-name">Lorenzo Baraldi</div>
+      <div class="team-role">Software &amp; Administration</div>
+      <ul class="team-responsibilities text-left">
+        <li><i class="fas fa-cog fa-fw"></i> Operating system and cluster software configuration</li>
+        <li><i class="fas fa-layer-group fa-fw"></i> SLURM workload manager setup and tuning</li>
+        <li><i class="fas fa-user-shield fa-fw"></i> User management, access control, and onboarding</li>
+        <li><i class="fas fa-book fa-fw"></i> Documentation and user support portal</li>
+        <li><i class="fas fa-chart-bar fa-fw"></i> Budget tracking and resource accounting</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-md-6 mb-4">
+    <div class="team-card text-center">
+      <img
+        src="https://aimagelab.unimore.it/media/avatars/me.jpg"
+        alt="Federico Bolelli"
+        class="team-avatar"
+      >
+      <div class="team-name">Federico Bolelli</div>
+      <div class="team-role">Hardware &amp; Infrastructure</div>
+      <ul class="team-responsibilities text-left">
+        <li><i class="fas fa-server fa-fw"></i> Server procurement and hardware provisioning</li>
+        <li><i class="fas fa-network-wired fa-fw"></i> Network infrastructure and server room management</li>
+        <li><i class="fas fa-cubes fa-fw"></i> Virtualization platform design and operation</li>
+        <li><i class="fas fa-plug fa-fw"></i> Power, cooling, and physical infrastructure oversight</li>
+        <li><i class="fas fa-tools fa-fw"></i> Hardware maintenance and capacity planning</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<div class="team-contact">
+  <p><i class="fas fa-life-ring" aria-hidden="true"></i>&nbsp; For support requests, please use the <a href="https://ailb-web.ing.unimore.it/tickets/">HPC Helpdesk</a> rather than contacting team members directly. This ensures your request is tracked and handled promptly.</p>
+</div>
+
+<script>
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-team").addClass("active");
+</script>
+{% endblock %}

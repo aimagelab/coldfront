@@ -1,55 +1,46 @@
 Dear %s,
 
-welcome to the AImageLab-HPC platform. AImageLab-HPC is an HPC system dedicated to research.
+welcome to {center_name}, the high-performance computing cluster of the
+AImageLab laboratory at the University of Modena and Reggio Emilia.
 
-*** Access ***
-To log in for the first time, you can make an ssh connection to ailb-login-02.ing.unimore.it or ailb-login-03.ing.unimore.it from a IP address of the University (cable network, WiFi, VPN).
+Your account details:
 
-Your username is: %s
+  Username   : %s
+  Expiration : %s
 
-If you have a UNIMORE account, your password will be the same of your UNIMORE account (e.g. the one that you use for ESSE3). Otherwise, you will receive a one-time password via email, and you will be asked to change your password at the first login.
+*** Connecting ***
 
-After the first login, access is allowed through the following modalities:
-- via password, when logging form a IP address of the University
-- via an SSH key, from anywhere in the world. To add or modify your public key, use the ssh-ldap-pubkey command.
+Log in via SSH from a University IP address (on-campus network, WiFi, or VPN):
 
-*** Username expiration ***
-The expiration date of your username is currently set to *%s*. If you will need to renew your access to a later date (e.g. because your thesis takes longer or your contract is renewed), open a ticket to request an extension (see below). As a general policy, personal data are deleted after the expiration of a username.
+  ssh <username>@ailb-login-02.ing.unimore.it
+  ssh <username>@ailb-login-03.ing.unimore.it
 
-*** Storage ***
-The storage of AImageLab-HPC is shared between all nodes. There are three positions that you can use:
-- /homes/<username>, personal and resilient area which should be used for storing code, logs and vital data
-- /work/<project>, project-level and high-capacity area which should be used to store datasets and checkpoints
+UNIMORE users: your password is the same as your UNIMORE account (the one
+used for ESSE3).
+External users: you will receive a separate email with a one-time password
+for your first login.
 
-Quotas can be active on all positions. In particular, your home folder has a quota of 100 GB. To check your usage, quota, and active positions run "squota" from the login node.
+*** Documentation ***
 
-To view the project(s) you are assigned to, please log in at: https://ailb-web.ing.unimore.it/coldfront/.
+Everything you need to get started — connecting, submitting jobs, managing
+storage, using software modules, and tracking your compute budget — is in
+the documentation on the portal:
 
-*** Software ***
-Basic Ubuntu packages are installed on all nodes. New Python and binary packages can be installed by creating new conda environments or through "pip install --user".
+  https://ailb-web.ing.unimore.it/coldfront/documentation
 
-You can, as well, switch between different versions of environment modules (CUDA included) using "module load". See the output of "module avail" for a complete list.
+If this is your first time, start here:
 
-*** Development resources ***
-Please see 
-https://ailb-web.ing.unimore.it/
-on how to configure and use your development GPU on Visual Studio Code.
+  https://ailb-web.ing.unimore.it/coldfront/documentation/s74Nu
 
-*** Production resources ***
-Beyond development, AImageLab-HPC has a set of GPU-powered nodes administered by SLURM, which deals with queue management and job monitoring.
+Your project allocations and budget usage are visible on the portal at:
 
-For those who have never used SLURM, here is a 101 guide:
-- Request an interactive job with a GPU:
-srun --gres=gpu:1 --pty bash
-- Run a python script with two GPUs:
-srun --gres=gpu:2 python script.py
-- Execute jobs and job arrays in batch mode: see the sbatch command
-- Monitor the status of the queues: see the squeue command
-- Delete a job: see the scancel command
+  https://ailb-web.ing.unimore.it/coldfront/
 
-It is advisable to take a quick look at the SLURM documentation in order to appreciate its functionality and to have some pointers to the documentation before starting.
+*** Support ***
 
-*** Support and feedback ***
-Support requests and feedbacks are welcome! If something is missing, ask. If you can not do something, ask. If you liked it, that's fine :)
+For questions and support requests, please open a ticket:
 
-All requests can be addressed to our ticketing system at aimagelab-srv-support@unimore.it or https://ailb-web.ing.unimore.it/tickets/
+  https://ailb-web.ing.unimore.it/tickets/
+
+Welcome aboard!
+The {center_name} Team

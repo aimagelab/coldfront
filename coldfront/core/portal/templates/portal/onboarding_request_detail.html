@@ -100,13 +100,37 @@
       <h3 class="d-inline"><i class="fas fa-check-circle" aria-hidden="true"></i> Actions</h3>
     </div>
     <div class="card-body">
-      <form method="post" action="{% url 'onboarding-request-approve' onboarding_request.pk %}" class="d-inline">
+      <form method="post" action="{% url 'onboarding-request-approve' onboarding_request.pk %}">
         {% csrf_token %}
-        <button type="submit" class="btn btn-success mr-2">Approve</button>
+        <div class="form-row mb-3">
+          <div class="form-group col-md-4">
+            <label for="{{ approve_form.role.id_for_label }}">Role</label>
+            {{ approve_form.role }}
+            {% if approve_form.role.errors %}
+              <div class="invalid-feedback d-block">{{ approve_form.role.errors|join:" " }}</div>
+            {% endif %}
+          </div>
+          <div class="form-group col-md-3">
+            <label for="{{ approve_form.expiration_date.id_for_label }}">Expiration Date</label>
+            {{ approve_form.expiration_date }}
+            {% if approve_form.expiration_date.errors %}
+              <div class="invalid-feedback d-block">{{ approve_form.expiration_date.errors|join:" " }}</div>
+            {% endif %}
+          </div>
+          <div class="form-group col-md-5">
+            <label for="{{ approve_form.course_project.id_for_label }}">Course <small class="text-muted">(if applicable)</small></label>
+            {{ approve_form.course_project }}
+            {% if approve_form.course_project.errors %}
+              <div class="invalid-feedback d-block">{{ approve_form.course_project.errors|join:" " }}</div>
+            {% endif %}
+          </div>
+        </div>
+        <button type="submit" class="btn btn-success">Approve</button>
       </form>
+      <hr>
       <form method="post" action="{% url 'onboarding-request-reject' onboarding_request.pk %}">
         {% csrf_token %}
-        <div class="form-group mt-3">
+        <div class="form-group mt-2">
           <label for="rejection_reason">Rejection reason <small class="text-muted">(optional)</small></label>
           <textarea name="rejection_reason" id="rejection_reason" class="form-control" rows="3" placeholder="Explain why this request is being rejected..."></textarea>
         </div>

@@ -90,3 +90,40 @@ class OnboardingProcessForm(forms.ModelForm):
         if external and data.get('codice_fiscale'):
             if AccountOnboardingRequest.objects.filter(codice_fiscale__iexact=data['codice_fiscale'], status=AccountOnboardingRequest.STATUS_PENDING, unimore_id__isnull=True).exists():
                 self.add_error('codice_fiscale', 'There is already a pending request with this Codice Fiscale.')
+
+
+class OnboardingApproveForm(forms.Form):
+    role = forms.ChoiceField(
+        choices=AccountOnboardingRequest.ROLE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+    )
+    expiration_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+    )
+    course_project = forms.ModelChoiceField(
+        queryset=Project.objects.none(),
+        required=False,
+        label='Course',
+        empty_label='— none —',
+        widget=forms.Select(attrs={'class': 'form-control'}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['course_project'].queryset = Project.objects.filter(project_type__code='F').order_by('title')
+
+    def clean(self):
+        data = super().clean()
+        role = data.get('role')
+        exp = data.get('expiration_date')
+        course = data.get('course_project')
+        if role in EXPIRATION_REQUIRED_ROLES and not exp:
+            self.add_error('expiration_date', 'Expiration date required for this role.')
+        if role not in EXPIRATION_REQUIRED_ROLES:
+            data['expiration_date'] = None
+        if role == AccountOnboardingRequest.ROLE_COURSE and not course:
+            self.add_error('course_project', 'Course selection is required for this role.')
+        if role != AccountOnboardingRequest.ROLE_COURSE:
+            data['course_project'] = None
+        return data

@@ -202,7 +202,9 @@ class Command(BaseCommand):
                     'If you are a non-UNIMORE user you should have received a separate password email.')
 
     def _send_welcome_email(self, req: AccountOnboardingRequest, raw_pw: str | None):
+        center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
         template = self._load_welcome_template()
+        template = template.replace('{center_name}', center_name)
         expiration_str = req.expiration_date.strftime('%Y-%m-%d') if req.expiration_date else 'N/A'
         try:
             body = template % (req.given_name, req.username, expiration_str)
@@ -214,7 +216,7 @@ class Command(BaseCommand):
         # Always send welcome
         try:
             EmailMessage(
-                subject='Welcome to AImageLab-HPC!',
+                subject=f'Welcome to {center_name}!',
                 body=body,
                 from_email=from_email,
                 to=[req.email]
@@ -225,11 +227,18 @@ class Command(BaseCommand):
 
         # OTP email for non-UNIMORE accounts only
         if raw_pw:
-            otp_body = f'Your one-time password for accessing AImageLab-HPC is: {raw_pw}\n' \
-                       'Use it at first login from a university network (VPN / on-campus).'
+            otp_body = (
+                f'Dear {req.given_name},\n\n'
+                f'Your one-time password for {center_name} is:\n\n'
+                f'  {raw_pw}\n\n'
+                f'Use this password at your first SSH login from a University IP address '
+                f'(on-campus network, WiFi, or VPN). You will be prompted to change it '
+                f'immediately after logging in.\n\n'
+                f'The {center_name} Team'
+            )
             try:
                 EmailMessage(
-                    subject='One-time password for AImageLab-HPC',
+                    subject=f'One-time password for {center_name}',
                     body=otp_body,
                     from_email=from_email,
                     to=[req.email]

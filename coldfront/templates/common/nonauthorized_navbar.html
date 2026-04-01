@@ -19,6 +19,9 @@
         <li id="navbar-documentation" class="nav-item">
           <a class="nav-link" href="{% url 'documentation' %}">Documentation</a>
         </li>
+        <li id="navbar-team" class="nav-item">
+          <a class="nav-link" href="{% url 'team' %}">Team</a>
+        </li>
         {% if settings.CENTER_HELP_URL %}
           {% include 'common/navbar_help.html' %}
         {% endif %}

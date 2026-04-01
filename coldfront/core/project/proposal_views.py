@@ -46,6 +46,7 @@ from coldfront.core.utils.common import get_domain_url, import_from_settings
 EMAIL_ENABLED = import_from_settings('EMAIL_ENABLED', False)
 EMAIL_SENDER = import_from_settings('EMAIL_SENDER', '') if EMAIL_ENABLED else ''
 EMAIL_ADMIN_LIST = import_from_settings('EMAIL_ADMIN_LIST', [])
+CENTER_HELP_URL = import_from_settings('CENTER_HELP_URL', '')
 
 
 # ---------------------------------------------------------------------------
@@ -395,6 +396,20 @@ class ProposalDecisionView(_StaffMixin, View):
             decision_label = proposal.get_status_display()
             pi = proposal.pi or proposal.applicant
             pi_name = pi.get_full_name() or pi.username
+            if proposal.status == ProjectProposal.STATUS_APPROVED:
+                next_steps = (
+                    f'Your project will be provisioned shortly. Once ready, you will be able to '
+                    f'submit jobs under the assigned project account. You can monitor the status '
+                    f'of your allocation on the portal:\n'
+                    f'{domain_url}/'
+                )
+            else:
+                helpdesk = CENTER_HELP_URL or f'{domain_url}/'
+                next_steps = (
+                    f'If you have questions about this decision or would like to discuss it '
+                    f'further, please open a ticket at:\n'
+                    f'{helpdesk}'
+                )
             _notify_proposer_and_pi(
                 proposal,
                 f'Decision on your project proposal: {proposal.title}',
@@ -403,9 +418,10 @@ class ProposalDecisionView(_StaffMixin, View):
                 f'  Title   : {proposal.title}\n'
                 f'  Type    : [{proposal.project_type.code}] {proposal.project_type.name}\n'
                 f'  Decision: {decision_label}\n\n'
-                f'The full reviews and meta-review from the committee are now available:\n'
+                f'{next_steps}\n\n'
+                f'The full reviews and meta-review from the committee are available here:\n'
                 f'{detail_url}\n\n'
-                f'Thank you,\nThe HPC Allocation Committee',
+                f'The HPC Allocation Committee',
             )
 
             messages.success(
@@ -512,7 +528,7 @@ class ProposalProvisionView(_StaffMixin, View):
         slurm_account_attr = AllocationAttributeType.objects.get(name='slurm_account_name')
         slurm_budget_attr = AllocationAttributeType.objects.get(name='slurm_budget')
         storage_quota_attr = AllocationAttributeType.objects.get(name='Storage Quota (GB)')
-        storage_group_attr = AllocationAttributeType.objects.get(name='storage_group')
+        storage_group_attr = AllocationAttributeType.objects.get(name='Storage_Group_Name')
 
         with transaction.atomic():
             # --- Project ---

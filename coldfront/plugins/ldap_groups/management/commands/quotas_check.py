@@ -5,7 +5,7 @@ from functools import lru_cache
 
 from django.core.management.base import BaseCommand
 
-from coldfront.core.resource.models import Resource
+from coldfront.core.resource.models import Resource, ResourceAttributeType
 from coldfront.core.allocation.models import Allocation, AllocationStatusChoice
 from coldfront.plugins.ldap_groups.utils import (LDAP_NOOP,
                                              FILESYSTEM_ATTRIBUTE_NAME,
@@ -27,7 +27,7 @@ class Command(BaseCommand):
             "-x", "--header", help="Include header in output", action="store_true")
 
     # Cache squota output, we hypothesize it does not change during the execution of this script
-    @lru_cache(maxsize=1)
+    @lru_cache(maxsize=None)
     def get_from_squota(self, filesystem):
         command = "sudo squota -f {} -A -P".format(filesystem)
         output = os.popen(command).read()
@@ -126,9 +126,10 @@ class Command(BaseCommand):
             self.sync = True
             logger.warn("Syncing squota with ColdFront")
 
-        resource = Resource.objects.get(pk=1) # Storage in WORK area resource
-        allocations = Allocation.objects.filter(resources__in=[resource, ], status=AllocationStatusChoice.objects.get(name='Active')).distinct()
-        logger.info("Processing %s active allocations", len(allocations))
+        fs_attr_type = ResourceAttributeType.objects.get(name=FILESYSTEM_ATTRIBUTE_NAME)
+        resources = Resource.objects.filter(resourceattribute__resource_attribute_type=fs_attr_type)
+        allocations = Allocation.objects.filter(resources__in=resources, status=AllocationStatusChoice.objects.get(name='Active')).distinct()
+        logger.info("Processing %s active allocations across %s storage resources", len(allocations), resources.count())
 
         for allocation in allocations:
             self.process_allocation(allocation)

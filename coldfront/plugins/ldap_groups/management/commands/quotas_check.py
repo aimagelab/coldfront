@@ -93,7 +93,7 @@ class Command(BaseCommand):
         current_usage = current_usage.get(storage_group_name, None)
 
         # Set quota if it does not match
-        if current_quota is None or current_quota != storage_quota and self.sync:
+        if (current_quota is None or current_quota != storage_quota) and self.sync:
             logger.warn("Setting quota on allocation %s to %s", allocation, storage_quota)
             self.set_quota(filesystem, storage_group_name, storage_quota)
 

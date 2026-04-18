@@ -1,0 +1,219 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}LDAP User Editor{% endblock %}
+
+{% block content %}
+<h2>LDAP User Editor</h2>
+<hr>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="d-inline"><i class="fas fa-search" aria-hidden="true"></i> Find User</h3>
+  </div>
+  <div class="card-body">
+    <form method="get" action="{% url 'ldap-user-edit' %}" class="form-inline">
+      <div class="form-group mr-2">
+        {{ search_form.username }}
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-search" aria-hidden="true"></i> Search
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if username and not ldap_user %}
+  <div class="alert alert-warning">
+    No LDAP entry found for username <strong>{{ username }}</strong>.
+  </div>
+{% endif %}
+
+{% if ldap_user %}
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="d-inline">
+      <i class="fas fa-user" aria-hidden="true"></i>
+      {{ ldap_user.givenName }} {{ ldap_user.sn }}
+      <small class="text-muted">({{ username }})</small>
+    </h3>
+    <div class="float-right">
+      {% if current_is_unimore %}
+        <span class="badge badge-info">UNIMORE / SASL</span>
+      {% else %}
+        <span class="badge badge-secondary">Local account</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <dl class="row">
+          <dt class="col-sm-4">Username</dt>
+          <dd class="col-sm-8"><code>{{ username }}</code></dd>
+
+          <dt class="col-sm-4">Full name</dt>
+          <dd class="col-sm-8">{{ ldap_user.givenName }} {{ ldap_user.sn }}</dd>
+
+          <dt class="col-sm-4">Email</dt>
+          <dd class="col-sm-8">{{ ldap_user.mail|default:"&mdash;" }}</dd>
+
+          <dt class="col-sm-4">Mobile</dt>
+          <dd class="col-sm-8">{{ ldap_user.mobile|default:"&mdash;" }}</dd>
+        </dl>
+      </div>
+      <div class="col-md-6">
+        <dl class="row">
+          <dt class="col-sm-4">Role (detected)</dt>
+          <dd class="col-sm-8">{{ current_role|default:"&mdash;" }}</dd>
+
+          <dt class="col-sm-4">Expiration</dt>
+          <dd class="col-sm-8">{{ current_expiration|default:"&mdash;" }}</dd>
+
+          <dt class="col-sm-4">UID / GID</dt>
+          <dd class="col-sm-8">{{ ldap_user.uidNumber }} / {{ ldap_user.gidNumber }}</dd>
+
+          <dt class="col-sm-4">Home</dt>
+          <dd class="col-sm-8"><code>{{ ldap_user.homeDirectory|default:"&mdash;" }}</code></dd>
+        </dl>
+      </div>
+    </div>
+
+    <hr>
+
+    <form method="post" action="{% url 'ldap-user-edit' %}?username={{ username }}">
+      {% csrf_token %}
+      <input type="hidden" name="username" value="{{ username }}">
+
+      <div class="form-row">
+        <div class="form-group col-md-5">
+          <label for="{{ edit_form.role.id_for_label }}">Role</label>
+          {{ edit_form.role }}
+          {% if edit_form.role.errors %}
+            <div class="invalid-feedback d-block">{{ edit_form.role.errors|join:" " }}</div>
+          {% endif %}
+        </div>
+        <div class="form-group col-md-3">
+          <label for="{{ edit_form.expiration_date.id_for_label }}">Expiration date</label>
+          {{ edit_form.expiration_date }}
+          {% if edit_form.expiration_date.errors %}
+            <div class="invalid-feedback d-block">{{ edit_form.expiration_date.errors|join:" " }}</div>
+          {% endif %}
+        </div>
+        <div class="form-group col-md-4">
+          <label for="{{ edit_form.email.id_for_label }}">Email</label>
+          {{ edit_form.email }}
+          {% if edit_form.email.errors %}
+            <div class="invalid-feedback d-block">{{ edit_form.email.errors|join:" " }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group col-md-4">
+          <label for="{{ edit_form.mobile.id_for_label }}">Mobile</label>
+          {{ edit_form.mobile }}
+          {% if edit_form.mobile.errors %}
+            <div class="invalid-feedback d-block">{{ edit_form.mobile.errors|join:" " }}</div>
+          {% endif %}
+        </div>
+        <div class="form-group col-md-4 d-flex align-items-end">
+          <div class="form-check">
+            {{ edit_form.is_unimore }}
+            <label class="form-check-label" for="{{ edit_form.is_unimore.id_for_label }}">
+              {{ edit_form.is_unimore.label }}
+            </label>
+          </div>
+        </div>
+        <div class="form-group col-md-4" id="unimore-id-field">
+          <label for="{{ edit_form.unimore_id.id_for_label }}">{{ edit_form.unimore_id.label }}</label>
+          {{ edit_form.unimore_id }}
+          <small class="form-text text-muted">{{ edit_form.unimore_id.help_text }}</small>
+          {% if edit_form.unimore_id.errors %}
+            <div class="invalid-feedback d-block">{{ edit_form.unimore_id.errors|join:" " }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if not current_is_unimore %}
+        <div class="alert alert-info py-2">
+          <small>
+            <i class="fas fa-info-circle" aria-hidden="true"></i>
+            Checking <strong>UNIMORE account</strong> will switch the user to SASL authentication.
+            Unchecking it (if currently checked) will generate a new one-time password and send it to the user by email.
+          </small>
+        </div>
+      {% else %}
+        <div class="alert alert-warning py-2">
+          <small>
+            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+            Unchecking <strong>UNIMORE account</strong> will generate a one-time password and send it to the user.
+          </small>
+        </div>
+      {% endif %}
+
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-save" aria-hidden="true"></i> Save changes
+      </button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if recent_edits %}
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="d-inline"><i class="fas fa-history" aria-hidden="true"></i> Recent edits</h3>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-hover mb-0">
+      <thead class="thead-light">
+        <tr>
+          <th>Time</th>
+          <th>User</th>
+          <th>Editor</th>
+          <th>Changes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for edit in recent_edits %}
+        <tr>
+          <td>{{ edit.timestamp|date:"Y-m-d H:i" }}</td>
+          <td>
+            <a href="{% url 'ldap-user-edit' %}?username={{ edit.target_username }}">{{ edit.target_username }}</a>
+          </td>
+          <td>{{ edit.editor.username|default:"&mdash;" }}</td>
+          <td>
+            <ul class="mb-0 pl-3">
+              {% for field, diff in edit.changes.items %}
+                <li>
+                  <strong>{{ field }}</strong>:
+                  <span class="text-muted">{{ diff.old|default:"—" }}</span>
+                  &rarr;
+                  <span>{{ diff.new|default:"—" }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  (function () {
+    var cb = document.getElementById('{{ edit_form.is_unimore.id_for_label }}');
+    var field = document.getElementById('unimore-id-field');
+    function toggle() {
+      if (field) field.style.display = cb && cb.checked ? '' : 'none';
+    }
+    if (cb) { cb.addEventListener('change', toggle); toggle(); }
+  })();
+
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-admin").addClass("active");
+</script>
+{% endblock %}

@@ -1,11 +1,9 @@
 import logging
 import datetime
-import hashlib
-import random
-import string
+import pwd
 import os
 import subprocess
-from base64 import b64encode
+import time
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -29,40 +27,17 @@ from coldfront.core.allocation.models import (
 )
 from coldfront.core.allocation.signals import allocation_activate_user
 from coldfront.plugins.ldap_groups.ldap_connector import LDAP
+from coldfront.plugins.ldap_groups.utils import (
+    ACCESS_GROUPS,
+    ROLE_GROUPS_MAP,
+    make_sha_password,
+    random_password,
+)
 
 logger = logging.getLogger(__name__)
 
-ACCESS_GROUPS = getattr(settings, 'LDAP_ACCESS_GROUPS', ['ailb-srv'])
-ROLE_GROUPS_MAP = getattr(settings, 'LDAP_ROLE_GROUPS_MAP', {
-    'Studente di Dottorato': 'dottorandi',
-    'Assegno di Ricerca': 'assegnisti',
-    'Contratto di Ricerca': 'contratti_ricerca',
-    'Incarico di Ricerca': 'incarichi_ricerca',
-    'Incarico Post-Doc': 'incarichi_postdoc',
-    'Incarico di Collaborazione': 'collaborazioni',
-    'Ricercatore RTD-A': 'ricercatori_rtda',
-    'Ricercatore RTD-B': 'ricercatori_rtd',
-    'Ricercatore RTT': 'ricercatori_rtt',
-    'Professore Associato': 'professori_associati',
-    'Professore Ordinario': 'professori_ordinari',
-    'Studente in tesi': 'tesisti',
-    'Studente da un corso': 'studenti',
-    'Ospiti a vario titolo': 'ospiti',
-    'Deactivated user': 'past_members',
-})
 DEFAULT_HOME_ROOT = getattr(settings, 'LDAP_HOME_ROOT', '/homes')
 HOME_QUOTA_GB = getattr(settings, 'LDAP_HOME_QUOTA_GB', 100)
-PASSWORD_CHARS = string.ascii_letters + string.digits + '!?._-'
-
-
-def make_sha_password(raw: str) -> str:
-    sha = hashlib.sha1()
-    sha.update(raw.encode())
-    return '{SHA}' + b64encode(sha.digest()).decode()
-
-
-def random_password(length: int = 12) -> str:
-    return ''.join(random.choice(PASSWORD_CHARS) for _ in range(length))
 
 
 class Command(BaseCommand):
@@ -250,11 +225,24 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------
     # Filesystem helpers
     # ------------------------------------------------------------------
+    def _wait_for_nss(self, username: str, timeout: int = 30, interval: int = 2):
+        """Wait until username is resolvable via NSS (i.e. nscd has picked up the new LDAP entry)."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                pwd.getpwnam(username)
+                return True
+            except KeyError:
+                time.sleep(interval)
+        logger.warning('User %s not visible in NSS after %ds — proceeding anyway', username, timeout)
+        return False
+
     def _ensure_home_directory(self, username: str):
         """Create and initialize the user's home directory if it does not exist.
         Mirrors the minimal behavior from legacy add_user.py (mkdir, populate, quota).
         Uses sudo for privileged commands; assumes proper sudoers config.
         """
+        self._wait_for_nss(username)
         home_path = os.path.join(DEFAULT_HOME_ROOT, username)
         if os.path.exists(home_path):
             logger.debug('Home directory already exists for %s', username)
@@ -276,7 +264,7 @@ class Command(BaseCommand):
                 logger.warning('populate_home script not found at %s; home directory left unpopulated.', script_path)
         # Set quota (using squota tool if available)
         try:
-            subprocess.run(['sudo', '/usr/local/bin/squota', '-u', username, '-f', DEFAULT_HOME_ROOT, '-q', str(HOME_QUOTA_GB)], check=False)
+            subprocess.run(['sudo', '/usr/local/bin/squota', '-u', username, '-f', DEFAULT_HOME_ROOT, '-q', str(HOME_QUOTA_GB)], check=True)
         except Exception as e:
             logger.warning('Failed to set quota for %s: %s', username, e)
 

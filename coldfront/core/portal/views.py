@@ -24,7 +24,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.views.generic import ListView
 
-from coldfront.core.portal.models import Carousel, News, DocumentationArticle, AccountOnboardingRequest
+import datetime
+
+from coldfront.core.portal.models import Carousel, News, DocumentationArticle, AccountOnboardingRequest, LdapUserEdit
 from coldfront.core.allocation.models import Allocation, AllocationUser
 from coldfront.core.grant.models import Grant
 from coldfront.core.portal.utils import (
@@ -36,13 +38,17 @@ from coldfront.core.portal.utils import (
 from coldfront.core.project.models import Project
 from coldfront.core.publication.models import Publication
 from coldfront.core.research_output.models import ResearchOutput
-from .forms import OnboardingProcessForm, OnboardingRequestSearchForm, OnboardingApproveForm
+from .forms import OnboardingProcessForm, OnboardingRequestSearchForm, OnboardingApproveForm, LdapUserSearchForm, LdapUserEditForm
 from .models import AccountOnboardingRequest
 from django.http import Http404
 from django.urls import reverse
 from coldfront.core.utils.common import import_from_settings
 from coldfront.plugins.ldap_groups.ldap_connector import LDAP
+from coldfront.plugins.ldap_groups.utils import ROLE_GROUPS_MAP, make_sha_password, random_password
+from django.core.mail import EmailMessage
 import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     import ldap.filter as ldap_filter
@@ -566,8 +572,6 @@ def codice_fiscale(request):
     - Finds the LDAP user by matching userPassword to "{SASL}<unimore_id>".
     - Stores the provided Codice Fiscale into the LDAP attribute employeeNumber.
     """
-    logger = logging.getLogger(__name__)
-
     # Require Shibboleth-provided identity
     unimore_id = request.META.get('HTTP_X_REMOTE_USER')
     cf_from_header = request.META.get('HTTP_X_REMOTE_CODICEFISCALE')
@@ -622,7 +626,6 @@ def codice_fiscale(request):
             entry = ldap_client.conn.entries[0]
             ldap_username = entry['uid'].value if 'uid' in entry else None
     except Exception as e:
-        logger = logging.getLogger(__name__)
         logger.warning('LDAP lookup failed for %s: %s', unimore_id, e)
 
     return render(
@@ -799,3 +802,236 @@ def onboarding_request_reject(request, pk):
     else:
         messages.warning(request, f'Request for {onboarding_request.username} is not pending.')
     return redirect('onboarding-request-detail', pk=pk)
+
+
+# ---------------------------------------------------------------------------
+# Reverse-lookup: LDAP group name → role label
+# ---------------------------------------------------------------------------
+_GROUP_TO_ROLE = {v: k for k, v in ROLE_GROUPS_MAP.items()}
+
+
+def _decode_password(raw) -> str:
+    if isinstance(raw, (bytes, bytearray)):
+        return raw.decode('utf-8', errors='ignore')
+    if isinstance(raw, list) and raw:
+        return _decode_password(raw[0])
+    return str(raw) if raw else ''
+
+
+def _send_ldap_edit_notification(username: str, email: str, changes: dict):
+    """Notify the user when their role or expiration date has been changed."""
+    notifiable = {k: v for k, v in changes.items() if k in ('role', 'expiration_date')}
+    if not notifiable:
+        return
+    center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
+    from_email = getattr(settings, 'EMAIL_SENDER', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+    help_url = getattr(settings, 'CENTER_HELP_URL', '') or getattr(settings, 'EMAIL_TICKET_SYSTEM_ADDRESS', '')
+
+    lines = []
+    if 'role' in notifiable:
+        old = notifiable['role']['old'] or '\u2014'
+        new = notifiable['role']['new']
+        lines.append(f"  Role       : {new}  (previously: {old})")
+    if 'expiration_date' in notifiable:
+        old = notifiable['expiration_date']['old'] if notifiable['expiration_date']['old'] != 'None' else 'N/A'
+        new = notifiable['expiration_date']['new'] if notifiable['expiration_date']['new'] != 'None' else 'N/A'
+        lines.append(f"  Expiration : {new}  (previously: {old})")
+
+    changes_block = '\n'.join(lines)
+    support_line = (f"\nFor questions, please open a ticket:\n\n  {help_url}" if help_url else '')
+
+    body = (
+        f"Dear {username},\n\n"
+        f"your account details at {center_name} have been updated.\n\n"
+        f"{changes_block}\n"
+        f"{support_line}\n\n"
+        f"The {center_name} Team"
+    )
+    try:
+        EmailMessage(
+            subject=f'[{center_name}] Account details updated',
+            body=body,
+            from_email=from_email,
+            to=[email],
+        ).send(fail_silently=False)
+        logger.info('Sent account-update notification to %s (%s)', username, email)
+    except Exception as e:
+        logger.error('Failed to send account-update notification to %s (%s): %s', username, email, e)
+
+
+def _send_otp_email(username: str, email: str, raw_pw: str):
+    center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
+    from_email = getattr(settings, 'EMAIL_SENDER', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+    body = (
+        f'Dear {username},\n\n'
+        f'Your account at {center_name} has been converted to a local (non-UNIMORE) account.\n\n'
+        f'Your one-time password is:\n\n'
+        f'  {raw_pw}\n\n'
+        f'Use this password at your first SSH login. You will be prompted to change it immediately.\n\n'
+        f'The {center_name} Team'
+    )
+    try:
+        EmailMessage(
+            subject=f'Account password reset \u2014 {center_name}',
+            body=body,
+            from_email=from_email,
+            to=[email],
+        ).send(fail_silently=False)
+        logger.info('Sent OTP reset email to %s (%s)', username, email)
+    except Exception as e:
+        logger.error('Failed to send OTP reset email to %s (%s): %s', username, email, e)
+
+
+@login_required
+def ldap_user_edit(request):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+
+    username = (
+        request.POST.get('username', '') or request.GET.get('username', '')
+    ).strip()
+
+    ldap_user = None
+    current_role = None
+    current_is_unimore = False
+    current_unimore_id = ''
+    current_expiration = None
+    edit_form = None
+
+    if username:
+        try:
+            ldap_client = LDAP()
+            ldap_user = ldap_client.get_user(username)
+        except Exception as e:
+            logger.exception('LDAP connection failed: %s', e)
+            messages.error(request, f'LDAP connection failed: {e}')
+
+        if ldap_user is None and username:
+            messages.error(request, f'User "{username}" not found in LDAP.')
+        elif ldap_user:
+            # Detect current role from group membership
+            try:
+                user_groups = ldap_client.get_groups_of_user(username)
+            except Exception:
+                user_groups = []
+            for g in user_groups:
+                if g in _GROUP_TO_ROLE:
+                    current_role = _GROUP_TO_ROLE[g]
+                    break
+
+            # Detect is_unimore from userPassword
+            pw_str = _decode_password(ldap_user.get('userPassword', ''))
+            current_is_unimore = pw_str.startswith('{SASL}')
+            current_unimore_id = pw_str[6:] if current_is_unimore else ''
+
+            # Parse shadowExpire → date
+            shadow_expire = ldap_user.get('shadowExpire')
+            if shadow_expire is not None:
+                try:
+                    current_expiration = datetime.date.fromtimestamp(int(shadow_expire) * 86400)
+                except (ValueError, TypeError, OSError):
+                    pass
+
+            if request.method == 'POST':
+                edit_form = LdapUserEditForm(request.POST)
+                if edit_form.is_valid():
+                    data = edit_form.cleaned_data
+                    new_role = data['role']
+                    new_expiration = data.get('expiration_date')
+                    new_email = data['email']
+                    new_mobile = (data.get('mobile') or '').strip() or None
+                    new_is_unimore = data['is_unimore']
+                    new_unimore_id = (data.get('unimore_id') or '').strip() or None
+
+                    old_role_group = ROLE_GROUPS_MAP.get(current_role) if current_role else None
+                    new_role_group = ROLE_GROUPS_MAP.get(new_role)
+
+                    # Build audit changes dict
+                    changes = {}
+                    if current_role != new_role:
+                        changes['role'] = {'old': current_role, 'new': new_role}
+                    if str(current_expiration) != str(new_expiration):
+                        changes['expiration_date'] = {'old': str(current_expiration), 'new': str(new_expiration)}
+                    current_email = ldap_user.get('mail', '')
+                    if isinstance(current_email, list):
+                        current_email = current_email[0] if current_email else ''
+                    if current_email != new_email:
+                        changes['email'] = {'old': current_email, 'new': new_email}
+                    current_mobile = ldap_user.get('mobile', '')
+                    if isinstance(current_mobile, list):
+                        current_mobile = current_mobile[0] if current_mobile else ''
+                    if (current_mobile or None) != new_mobile:
+                        changes['mobile'] = {'old': current_mobile or None, 'new': new_mobile}
+                    if current_is_unimore != new_is_unimore:
+                        changes['is_unimore'] = {'old': current_is_unimore, 'new': new_is_unimore}
+
+                    # Password: generate OTP only when switching unimore → non-unimore
+                    raw_pw = None
+                    password_hash = None
+                    if not new_is_unimore and current_is_unimore:
+                        raw_pw = random_password()
+                        password_hash = make_sha_password(raw_pw)
+
+                    try:
+                        ldap_client.update_user(
+                            username=username,
+                            email=new_email,
+                            role=new_role_group,
+                            expiration_date=new_expiration,
+                            mobile=new_mobile,
+                            is_unimore=new_is_unimore,
+                            unimore_ldap_username=new_unimore_id if new_is_unimore else None,
+                            password_hash=password_hash,
+                            move_if_role_changed=True,
+                        )
+
+                        # Sync role-group membership
+                        if old_role_group and old_role_group != new_role_group:
+                            ldap_client.remove_user_from_groups(username, [old_role_group])
+                        if new_role_group and new_role_group != old_role_group:
+                            ldap_client.add_user_to_groups(username, [new_role_group])
+
+                        if raw_pw:
+                            _send_otp_email(username, new_email, raw_pw)
+
+                        _send_ldap_edit_notification(username, new_email, changes)
+
+                        if changes:
+                            LdapUserEdit.objects.create(
+                                editor=request.user,
+                                target_username=username,
+                                changes=changes,
+                            )
+                            messages.success(request, f'User "{username}" updated in LDAP.')
+                        else:
+                            messages.info(request, f'No changes detected for "{username}".')
+
+                        return redirect(f'{reverse("ldap-user-edit")}?username={username}')
+                    except Exception as e:
+                        logger.exception('Failed to update LDAP user %s: %s', username, e)
+                        messages.error(request, f'Failed to update user: {e}')
+            else:
+                _mail = ldap_user.get('mail', '')
+                _mob = ldap_user.get('mobile', '')
+                edit_form = LdapUserEditForm(initial={
+                    'role': current_role or '',
+                    'expiration_date': current_expiration,
+                    'email': _mail[0] if isinstance(_mail, list) else _mail,
+                    'mobile': _mob[0] if isinstance(_mob, list) else _mob,
+                    'is_unimore': current_is_unimore,
+                    'unimore_id': current_unimore_id,
+                })
+
+    search_form = LdapUserSearchForm(initial={'username': username} if username else None)
+    recent_edits = LdapUserEdit.objects.select_related('editor').order_by('-timestamp')[:20]
+
+    return render(request, 'portal/ldap_user_edit.html', {
+        'search_form': search_form,
+        'username': username,
+        'ldap_user': ldap_user,
+        'current_role': current_role,
+        'current_is_unimore': current_is_unimore,
+        'current_expiration': current_expiration,
+        'edit_form': edit_form,
+        'recent_edits': recent_edits,
+    })

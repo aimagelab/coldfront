@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) ColdFront Authors
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
+from django.conf import settings
 from django.db import models
 from martor.models import MartorField
 from django.utils import timezone
@@ -165,3 +166,23 @@ class AccountOnboardingRequest(models.Model):
     @property
     def is_unimore(self) -> bool:
         return bool(self.unimore_id)
+
+
+class LdapUserEdit(models.Model):
+    """Audit log for direct LDAP user attribute edits made via the portal."""
+    editor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='ldap_user_edits',
+    )
+    target_username = models.CharField(max_length=150, db_index=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    # {field_name: {old: ..., new: ...}}
+    changes = models.JSONField()
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.editor} edited {self.target_username} at {self.timestamp:%Y-%m-%d %H:%M}"

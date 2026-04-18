@@ -10,6 +10,11 @@ from coldfront.plugins.ldap_groups.utils import AlreadyMemberError, NotMemberErr
 
 logger = logging.getLogger(__name__)
 
+SASL_PWD_POLICY_DN = import_from_settings(
+    'LDAP_SASL_PWD_POLICY_DN',
+    'cn=sasl,ou=pwpolicy,dc=aimagelab,dc=unimore,dc=it'
+)
+
 class LDAP:
     def __init__(self):
         super().__init__()
@@ -253,6 +258,7 @@ class LDAP:
         if is_unimore and unimore_ldap_username:
             # Represent remote account style placeholder
             attrs['userPassword'] = f'{{SASL}}{unimore_ldap_username}'
+            attrs['pwdPolicySubentry'] = SASL_PWD_POLICY_DN
 
         # ldap3 expects add with attributes as dict of {attr: value/list}
         ok = self.conn.add(dn, attributes=attrs)
@@ -331,8 +337,13 @@ class LDAP:
         # Shadow / expiration
         if expiration_date is not None:
             modifications['shadowExpire'] = [(MODIFY_REPLACE, [str(self._epoch_days(expiration_date))])]
-        # For symmetry with create_user, optionally maintain external account shadow settings
-        if not is_unimore and password_hash is not None:
+        if is_unimore:
+            # SASL accounts are authenticated externally — remove local shadow policy attrs if present
+            for attr in ('shadowLastChange', 'shadowMax', 'shadowWarning'):
+                if current.get(attr) is not None:
+                    modifications[attr] = [(MODIFY_DELETE, [])]
+            modifications['pwdPolicySubentry'] = [(MODIFY_REPLACE, [SASL_PWD_POLICY_DN])]
+        elif password_hash is not None:
             modifications['shadowLastChange'] = [(MODIFY_REPLACE, ['1'])]
             modifications['shadowMax'] = [(MODIFY_REPLACE, ['30'])]
             modifications['shadowWarning'] = [(MODIFY_REPLACE, ['15'])]

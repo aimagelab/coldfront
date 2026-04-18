@@ -1,6 +1,7 @@
 from django import forms
 from .models import AccountOnboardingRequest
 from coldfront.core.project.models import Project
+from coldfront.plugins.ldap_groups.utils import ROLE_GROUPS_MAP
 
 EXPIRATION_REQUIRED_ROLES = {
     AccountOnboardingRequest.ROLE_PHD,
@@ -126,4 +127,51 @@ class OnboardingApproveForm(forms.Form):
             self.add_error('course_project', 'Course selection is required for this role.')
         if role != AccountOnboardingRequest.ROLE_COURSE:
             data['course_project'] = None
+        return data
+
+
+_LDAP_EDIT_ROLE_CHOICES = AccountOnboardingRequest.ROLE_CHOICES + [('Deactivated user', 'Deactivated user')]
+
+
+class LdapUserSearchForm(forms.Form):
+    username = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter username'}),
+    )
+
+
+class LdapUserEditForm(forms.Form):
+    role = forms.ChoiceField(
+        choices=_LDAP_EDIT_ROLE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+    )
+    expiration_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+    )
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={'class': 'form-control'}),
+    )
+    mobile = forms.CharField(
+        max_length=50,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. +39 333 1234567'}),
+    )
+    is_unimore = forms.BooleanField(
+        required=False,
+        label='UNIMORE account (SASL authentication)',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+    unimore_id = forms.CharField(
+        max_length=150,
+        required=False,
+        label='UNIMORE ID',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. lobaraldi'}),
+        help_text='Required when UNIMORE account is checked.',
+    )
+
+    def clean(self):
+        data = super().clean()
+        if data.get('is_unimore') and not (data.get('unimore_id') or '').strip():
+            self.add_error('unimore_id', 'UNIMORE ID is required when UNIMORE account is checked.')
         return data

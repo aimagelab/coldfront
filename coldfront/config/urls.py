@@ -44,6 +44,7 @@ urlpatterns = [
     path("onboarding-requests/<int:pk>/", portal_views.onboarding_request_detail, name="onboarding-request-detail"),
     path("onboarding-requests/<int:pk>/approve", portal_views.onboarding_request_approve, name="onboarding-request-approve"),
     path("onboarding-requests/<int:pk>/reject", portal_views.onboarding_request_reject, name="onboarding-request-reject"),
+    path("ldap-user-edit", portal_views.ldap_user_edit, name="ldap-user-edit"),
     path("communications/", include("coldfront.core.communications.urls")),
 ]
 

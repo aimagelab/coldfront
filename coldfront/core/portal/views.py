@@ -26,7 +26,7 @@ from django.views.generic import ListView
 
 import datetime
 
-from coldfront.core.portal.models import Carousel, News, DocumentationArticle, AccountOnboardingRequest, LdapUserEdit
+from coldfront.core.portal.models import Carousel, News, DocumentationArticle, AccountOnboardingRequest, LdapUserEdit, AccountRenewalRequest, CourseEnrollmentRequest
 from coldfront.core.allocation.models import Allocation, AllocationUser
 from coldfront.core.grant.models import Grant
 from coldfront.core.portal.utils import (
@@ -35,10 +35,16 @@ from coldfront.core.portal.utils import (
     generate_resources_chart_data,
     generate_total_grants_by_agency_chart_data,
 )
-from coldfront.core.project.models import Project
+from coldfront.core.project.models import Project, ProjectUser, ProjectUserRoleChoice, ProjectUserStatusChoice
+from coldfront.core.project.signals import project_activate_user
+from coldfront.core.allocation.models import AllocationUserStatusChoice
+from coldfront.core.allocation.signals import allocation_activate_user
 from coldfront.core.publication.models import Publication
 from coldfront.core.research_output.models import ResearchOutput
-from .forms import OnboardingProcessForm, OnboardingRequestSearchForm, OnboardingApproveForm, LdapUserSearchForm, LdapUserEditForm
+from .forms import (OnboardingProcessForm, OnboardingRequestSearchForm, OnboardingApproveForm,
+                    LdapUserSearchForm, LdapUserEditForm,
+                    AccountRenewalRequestForm, AccountRenewalApproveForm, AccountRenewalRequestSearchForm,
+                    CourseEnrollmentRequestForm, CourseEnrollmentRequestSearchForm)
 from .models import AccountOnboardingRequest
 from django.http import Http404
 from django.urls import reverse
@@ -136,6 +142,21 @@ def home(request):
         try:
             context["ondemand_url"] = settings.ONDEMAND_URL
         except AttributeError:
+            pass
+
+        # LDAP account expiry banner
+        try:
+            _ldap = LDAP()
+            _lu = _ldap.get_user(request.user.username)
+            if _lu:
+                _se = _lu.get('shadowExpire')
+                if _se is not None:
+                    _exp = datetime.date.fromtimestamp(int(_se) * 86400)
+                    _days = (_exp - datetime.date.today()).days
+                    if _days <= 30:
+                        context['account_days_until_expiry'] = _days
+                        context['account_expiry_date'] = _exp
+        except Exception:
             pass
     else:
         template_name = "portal/nonauthorized_home.html"
@@ -371,16 +392,13 @@ def onboard_process(request):
         status=AccountOnboardingRequest.STATUS_PENDING
     ).first()
 
-    course_projects = Project.objects.filter(project_type__code='F').order_by('title')
-
     if request.method == 'POST':
         if existing_pending:
             messages.warning(request, "You already have a pending request.")
             return redirect('onboard')
-        form = OnboardingProcessForm(request.POST, course_queryset=course_projects)
+        form = OnboardingProcessForm(request.POST)
         if form.is_valid():
             req_obj = form.save(commit=False)
-            # Reuse existing username for renewals; generate a new one otherwise
             if renewal_username:
                 username = renewal_username
             else:
@@ -401,12 +419,10 @@ def onboard_process(request):
             req_obj.unimore_id = unimore_id
             req_obj.codice_fiscale = codice_fiscale
 
-            # If role is thesis or course, assign a default expiration date in 6 months
             if req_obj.role in [AccountOnboardingRequest.ROLE_THESIS, AccountOnboardingRequest.ROLE_COURSE]:
                 req_obj.expiration_date = timezone.now() + timezone.timedelta(days=180)
 
             req_obj.save()
-            # Notify admins
             center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
             subject = f"[{center_name}] New onboarding request"
             review_url = request.build_absolute_uri(reverse('onboarding-request-detail', args=[req_obj.pk]))
@@ -417,7 +433,6 @@ def onboard_process(request):
   Email      : {email}
   UNIMORE ID : {unimore_id}
   Role       : {req_obj.role}
-  Course     : {req_obj.course_project.title if req_obj.course_project else 'N/A'}
   Expiration : {req_obj.expiration_date or 'N/A'}
   CF         : {req_obj.codice_fiscale or 'N/A'}
   Submitted  : {req_obj.submitted_at:%Y-%m-%d %H:%M}
@@ -440,7 +455,7 @@ Review here: {review_url}""".strip()
                 request,
                 "Your account has expired. Submitting this form will renew it with a new role and expiration date."
             )
-        form = OnboardingProcessForm(course_queryset=course_projects)
+        form = OnboardingProcessForm()
 
     return render(
         request,
@@ -452,7 +467,6 @@ Review here: {review_url}""".strip()
             'email': email,
             'unimore_id': unimore_id,
             'codice_fiscale': codice_fiscale,
-            'has_courses': course_projects.exists(),
             'is_renewal': bool(renewal_username),
         }
     )
@@ -469,11 +483,8 @@ def onboard_external(request):
     email = ''
     unimore_id = None  # explicit external
 
-    course_projects = Project.objects.filter(project_type__code='F').order_by('title')
-
     if request.method == 'POST':
-        form = OnboardingProcessForm(request.POST, request.FILES, course_queryset=course_projects)
-        # Flag for form validation that this is external
+        form = OnboardingProcessForm(request.POST, request.FILES)
         form.initial['is_external'] = True
         if form.is_valid():
             data = form.cleaned_data
@@ -484,11 +495,9 @@ def onboard_external(request):
             if not given_name or not surname or not email or not codice_fiscale:
                 messages.error(request, 'Name, surname, email, and Codice Fiscale are required.')
             else:
-                # Ensure no pending external request with same codice fiscale
                 if AccountOnboardingRequest.objects.filter(codice_fiscale=codice_fiscale, status=AccountOnboardingRequest.STATUS_PENDING).exists():
                     messages.warning(request, 'You already have a pending request.')
                     return redirect('onboard')
-                # Check LDAP for existing account with this Codice Fiscale
                 renewal_username = None
                 try:
                     ldap_client = LDAP()
@@ -504,7 +513,6 @@ def onboard_external(request):
                         renewal_username = ldap_result['username']
                 except Exception:
                     logger.warning('LDAP lookup failed during onboard_external; proceeding without check.', exc_info=True)
-                # Reuse existing username for renewals; generate a new one otherwise
                 if renewal_username:
                     candidate = renewal_username
                 else:
@@ -524,11 +532,9 @@ def onboard_external(request):
                 req_obj.email = email
                 req_obj.unimore_id = None
                 req_obj.codice_fiscale = codice_fiscale
-                # External must have expiration if role demands; thesis/course default 6 months if empty
                 if req_obj.role in [AccountOnboardingRequest.ROLE_THESIS, AccountOnboardingRequest.ROLE_COURSE] and not req_obj.expiration_date:
                     req_obj.expiration_date = timezone.now() + timezone.timedelta(days=180)
                 req_obj.save()
-                # Notify admins
                 center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
                 subject = f"[{center_name}] New external onboarding request"
                 review_url = request.build_absolute_uri(reverse('onboarding-request-detail', args=[req_obj.pk]))
@@ -539,7 +545,6 @@ def onboard_external(request):
   Email      : {email}
   CF         : {codice_fiscale}
   Role       : {req_obj.role}
-  Course     : {req_obj.course_project.title if req_obj.course_project else 'N/A'}
   Expiration : {req_obj.expiration_date or 'N/A'}
   Submitted  : {req_obj.submitted_at:%Y-%m-%d %H:%M}
 
@@ -553,17 +558,10 @@ Review here: {review_url}""".strip()
                 messages.success(request, 'External onboarding request submitted; you will be notified after review.')
                 return redirect('onboard')
     else:
-        form = OnboardingProcessForm(course_queryset=course_projects)
+        form = OnboardingProcessForm()
         form.initial['is_external'] = True
 
-    return render(
-        request,
-        'portal/onboard_external.html',
-        {
-            'form': form,
-            'has_courses': course_projects.exists(),
-        }
-    )
+    return render(request, 'portal/onboard_external.html', {'form': form})
 
 def codice_fiscale(request):
     """Shibboleth-protected view to collect and store Codice Fiscale in LDAP.
@@ -714,7 +712,6 @@ def onboarding_request_detail(request, pk):
     approve_form = OnboardingApproveForm(initial={
         'role': onboarding_request.role,
         'expiration_date': onboarding_request.expiration_date,
-        'course_project': onboarding_request.course_project,
     })
     return render(request, 'portal/onboarding_request_detail.html', {
         'onboarding_request': onboarding_request,
@@ -739,10 +736,9 @@ def onboarding_request_approve(request, pk):
             })
         onboarding_request.role = form.cleaned_data['role']
         onboarding_request.expiration_date = form.cleaned_data['expiration_date']
-        onboarding_request.course_project = form.cleaned_data['course_project']
         onboarding_request.status = AccountOnboardingRequest.STATUS_APPROVED
         onboarding_request.processed_at = timezone.now()
-        onboarding_request.save(update_fields=['role', 'expiration_date', 'course_project', 'status', 'processed_at'])
+        onboarding_request.save(update_fields=['role', 'expiration_date', 'status', 'processed_at'])
         messages.success(request, f'Request for {onboarding_request.username} approved.')
     else:
         messages.warning(request, f'Request for {onboarding_request.username} is not pending.')
@@ -1035,3 +1031,618 @@ def ldap_user_edit(request):
         'edit_form': edit_form,
         'recent_edits': recent_edits,
     })
+
+
+# ---------------------------------------------------------------------------
+# Account renewal request — user-facing
+# ---------------------------------------------------------------------------
+
+def _send_renewal_admin_notification(request_obj, http_request):
+    center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
+    notify_list = getattr(settings, 'ACCOUNT_REQUEST_NOTIFY', [])
+    if not notify_list:
+        return
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+    review_url = http_request.build_absolute_uri(
+        reverse('account-renewal-request-detail', args=[request_obj.pk])
+    )
+    role_line = (
+        f"  New role   : {request_obj.new_role}  (was: {request_obj.current_role or '—'})\n"
+        if request_obj.role_changed else ''
+    )
+    body = (
+        f"Account renewal request submitted and awaiting review.\n\n"
+        f"  Username   : {request_obj.requester_username}\n"
+        f"  Current exp: {request_obj.current_expiration_date or 'N/A'}\n"
+        f"  Requested  : {request_obj.requested_expiration_date}\n"
+        f"{role_line}"
+        f"  Notes      : {request_obj.notes or '—'}\n\n"
+        f"Review here: {review_url}"
+    )
+    try:
+        send_mail(
+            f'[{center_name}] Account renewal request — {request_obj.requester_username}',
+            body, from_email, notify_list, fail_silently=True,
+        )
+    except Exception:
+        pass
+
+
+def _send_renewal_user_email(request_obj, approved: bool, new_expiration=None, new_role=None):
+    center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
+    from_email = getattr(settings, 'EMAIL_SENDER', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+    help_url = getattr(settings, 'CENTER_HELP_URL', '') or getattr(settings, 'EMAIL_TICKET_SYSTEM_ADDRESS', '')
+
+    if approved:
+        role_line = f"  Role       : {new_role}\n" if new_role else ''
+        support_line = f"\nFor questions, please open a ticket:\n\n  {help_url}" if help_url else ''
+        body = (
+            f"Dear {request_obj.requester_username},\n\n"
+            f"your account renewal request at {center_name} has been approved.\n\n"
+            f"  Username   : {request_obj.requester_username}\n"
+            f"{role_line}"
+            f"  Expiration : {new_expiration}\n"
+            f"{support_line}\n\n"
+            f"The {center_name} Team"
+        )
+        subject = f'[{center_name}] Account renewal approved'
+    else:
+        reason_section = (
+            f"\nReason:\n{request_obj.rejection_reason}\n"
+            if request_obj.rejection_reason else "\nNo specific reason was provided.\n"
+        )
+        support_line = f"\nFor questions, please open a ticket:\n\n  {help_url}" if help_url else ''
+        body = (
+            f"Dear {request_obj.requester_username},\n\n"
+            f"your account renewal request at {center_name} has been rejected.\n"
+            f"{reason_section}"
+            f"{support_line}\n\n"
+            f"The {center_name} Team"
+        )
+        subject = f'[{center_name}] Account renewal rejected'
+
+    # Fetch user email from LDAP for the notification
+    try:
+        ldap_client = LDAP()
+        user_email = ldap_client.get_email(request_obj.requester_username)
+    except Exception:
+        user_email = None
+
+    if not user_email:
+        logger.warning('Could not fetch email for %s; renewal notification not sent.', request_obj.requester_username)
+        return
+    try:
+        EmailMessage(subject=subject, body=body, from_email=from_email, to=[user_email]).send(fail_silently=False)
+    except Exception as e:
+        logger.error('Failed to send renewal notification to %s: %s', request_obj.requester_username, e)
+
+
+@login_required
+def account_renewal_request(request):
+    username = request.user.username
+
+    # Look up LDAP state
+    ldap_user = None
+    current_role = None
+    current_expiration = None
+    try:
+        ldap_client = LDAP()
+        ldap_user = ldap_client.get_user(username)
+        if ldap_user:
+            user_groups = ldap_client.get_groups_of_user(username)
+            for g in user_groups:
+                if g in _GROUP_TO_ROLE:
+                    current_role = _GROUP_TO_ROLE[g]
+                    break
+            se = ldap_user.get('shadowExpire')
+            if se is not None:
+                try:
+                    current_expiration = datetime.date.fromtimestamp(int(se) * 86400)
+                except (ValueError, TypeError, OSError):
+                    pass
+    except Exception as e:
+        logger.warning('LDAP lookup failed for renewal page (%s): %s', username, e)
+
+    # Check for existing pending request
+    pending = AccountRenewalRequest.objects.filter(
+        requester_username=username,
+        status=AccountRenewalRequest.STATUS_PENDING,
+    ).first()
+
+    form = None
+    if not pending:
+        if request.method == 'POST':
+            form = AccountRenewalRequestForm(request.POST, request.FILES)
+            if form.is_valid():
+                data = form.cleaned_data
+                renewal = AccountRenewalRequest(
+                    requester_username=username,
+                    current_role=current_role or '',
+                    current_expiration_date=current_expiration,
+                    requested_expiration_date=data['requested_expiration_date'],
+                    role_changed=data['role_changed'],
+                    new_role=data.get('new_role', '') if data['role_changed'] else '',
+                    proof_document=data.get('proof_document') or None,
+                    notes=data.get('notes', ''),
+                )
+                renewal.save()
+                _send_renewal_admin_notification(renewal, request)
+                messages.success(request, 'Your renewal request has been submitted and is awaiting review.')
+                return redirect('account-renewal-request')
+        else:
+            form = AccountRenewalRequestForm()
+
+    days_until_expiry = None
+    if current_expiration:
+        days_until_expiry = (current_expiration - datetime.date.today()).days
+
+    return render(request, 'portal/account_renewal_request.html', {
+        'ldap_user': ldap_user,
+        'current_role': current_role,
+        'current_expiration': current_expiration,
+        'days_until_expiry': days_until_expiry,
+        'pending': pending,
+        'form': form,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Account renewal request — admin views
+# ---------------------------------------------------------------------------
+
+_RENEWAL_SORT_FIELDS = {'requester_username', 'status', 'submitted_at', 'requested_expiration_date'}
+
+
+class AccountRenewalRequestListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    model = AccountRenewalRequest
+    template_name = 'portal/account_renewal_request_list.html'
+    context_object_name = 'renewal_requests'
+    paginate_by = 25
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def _get_sort_params(self):
+        order_by = self.request.GET.get('order_by', 'submitted_at')
+        direction = self.request.GET.get('direction', 'desc')
+        if order_by not in _RENEWAL_SORT_FIELDS:
+            order_by = 'submitted_at'
+        if direction not in ('asc', 'desc'):
+            direction = 'desc'
+        return order_by, direction
+
+    def get_queryset(self):
+        qs = AccountRenewalRequest.objects.all()
+        if not self.request.GET:
+            return qs.filter(status=AccountRenewalRequest.STATUS_PENDING).order_by('-submitted_at')
+        form = AccountRenewalRequestSearchForm(self.request.GET)
+        if form.is_valid():
+            data = form.cleaned_data
+            if data.get('username'):
+                qs = qs.filter(requester_username__icontains=data['username'])
+            if data.get('status'):
+                qs = qs.filter(status=data['status'])
+        order_by, direction = self._get_sort_params()
+        prefix = '' if direction == 'asc' else '-'
+        return qs.order_by(f'{prefix}{order_by}')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        form = AccountRenewalRequestSearchForm(self.request.GET)
+        ctx['search_form'] = form
+        filter_parameters = ''
+        if form.is_valid():
+            for key, value in form.cleaned_data.items():
+                if value:
+                    filter_parameters += f'{key}={value}&'
+        ctx['expand_accordion'] = 'show' if filter_parameters else ''
+        order_by, direction = self._get_sort_params()
+        ctx['current_order_by'] = order_by
+        ctx['current_direction'] = direction
+        ctx['filter_parameters'] = filter_parameters + f'order_by={order_by}&direction={direction}'
+        ctx['filter_only_parameters'] = filter_parameters.rstrip('&')
+        return ctx
+
+
+@login_required
+def account_renewal_request_detail(request, pk):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    renewal = get_object_or_404(AccountRenewalRequest, pk=pk)
+    effective_role = renewal.new_role if renewal.role_changed else renewal.current_role
+    approve_form = AccountRenewalApproveForm(initial={
+        'role': effective_role,
+        'expiration_date': renewal.requested_expiration_date,
+    })
+    return render(request, 'portal/account_renewal_request_detail.html', {
+        'renewal': renewal,
+        'approve_form': approve_form,
+    })
+
+
+@login_required
+def account_renewal_request_approve(request, pk):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        return redirect('account-renewal-request-detail', pk=pk)
+    renewal = get_object_or_404(AccountRenewalRequest, pk=pk)
+    if renewal.status != AccountRenewalRequest.STATUS_PENDING:
+        messages.warning(request, 'This request is not pending.')
+        return redirect('account-renewal-request-detail', pk=pk)
+
+    form = AccountRenewalApproveForm(request.POST)
+    if not form.is_valid():
+        effective_role = renewal.new_role if renewal.role_changed else renewal.current_role
+        return render(request, 'portal/account_renewal_request_detail.html', {
+            'renewal': renewal,
+            'approve_form': form,
+        })
+
+    new_expiration = form.cleaned_data['expiration_date']
+    approved_role = form.cleaned_data['role']
+
+    try:
+        ldap_client = LDAP()
+        old_role_group = ROLE_GROUPS_MAP.get(renewal.current_role) if renewal.current_role else None
+        new_role_group = ROLE_GROUPS_MAP.get(approved_role)
+
+        ldap_client.update_user(
+            username=renewal.requester_username,
+            role=new_role_group,
+            expiration_date=new_expiration,
+            move_if_role_changed=True,
+        )
+
+        if old_role_group and old_role_group != new_role_group:
+            ldap_client.remove_user_from_groups(renewal.requester_username, [old_role_group])
+        if new_role_group and new_role_group != old_role_group:
+            ldap_client.add_user_to_groups(renewal.requester_username, [new_role_group])
+
+        # Audit log
+        changes = {}
+        if renewal.current_expiration_date != new_expiration:
+            changes['expiration_date'] = {'old': str(renewal.current_expiration_date), 'new': str(new_expiration)}
+        if renewal.current_role != approved_role:
+            changes['role'] = {'old': renewal.current_role, 'new': approved_role}
+        if changes:
+            LdapUserEdit.objects.create(
+                editor=request.user,
+                target_username=renewal.requester_username,
+                changes=changes,
+            )
+    except Exception as e:
+        logger.exception('Failed to apply renewal for %s: %s', renewal.requester_username, e)
+        messages.error(request, f'LDAP update failed: {e}')
+        return redirect('account-renewal-request-detail', pk=pk)
+
+    renewal.status = AccountRenewalRequest.STATUS_APPROVED
+    renewal.processed_at = timezone.now()
+    renewal.processed_by = request.user
+    renewal.save(update_fields=['status', 'processed_at', 'processed_by'])
+
+    _send_renewal_user_email(renewal, approved=True, new_expiration=new_expiration, new_role=approved_role)
+    messages.success(request, f'Renewal for {renewal.requester_username} approved and LDAP updated.')
+    return redirect('account-renewal-request-detail', pk=pk)
+
+
+@login_required
+def account_renewal_request_reject(request, pk):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        return redirect('account-renewal-request-detail', pk=pk)
+    renewal = get_object_or_404(AccountRenewalRequest, pk=pk)
+    if renewal.status != AccountRenewalRequest.STATUS_PENDING:
+        messages.warning(request, 'This request is not pending.')
+        return redirect('account-renewal-request-detail', pk=pk)
+
+    renewal.status = AccountRenewalRequest.STATUS_REJECTED
+    renewal.processed_at = timezone.now()
+    renewal.processed_by = request.user
+    renewal.rejection_reason = request.POST.get('rejection_reason', '').strip()
+    renewal.save(update_fields=['status', 'processed_at', 'processed_by', 'rejection_reason'])
+
+    _send_renewal_user_email(renewal, approved=False)
+    messages.success(request, f'Renewal for {renewal.requester_username} rejected.')
+    return redirect('account-renewal-request-detail', pk=pk)
+
+
+# ---------------------------------------------------------------------------
+# Course enrollment request
+# ---------------------------------------------------------------------------
+
+_STUDENT_GROUPS = {'tesisti', 'studenti'}
+
+_ELIGIBLE_STUDENT_ROLES = {
+    AccountOnboardingRequest.ROLE_THESIS,
+    AccountOnboardingRequest.ROLE_COURSE,
+}
+
+
+def _enroll_user_in_project(username, project):
+    """Add a user to a project and all its active allocations."""
+    User = get_user_model()
+    user_obj, _ = User.objects.get_or_create(username=username)
+    user_role = ProjectUserRoleChoice.objects.get(name='User')
+    active_proj_status = ProjectUserStatusChoice.objects.get(name='Active')
+    active_alloc_status = AllocationUserStatusChoice.objects.get(name='Active')
+
+    if project.projectuser_set.filter(user=user_obj).exists():
+        pu = project.projectuser_set.get(user=user_obj)
+        pu.role = user_role
+        pu.status = active_proj_status
+        pu.save()
+    else:
+        pu = ProjectUser.objects.create(
+            user=user_obj, project=project, role=user_role, status=active_proj_status,
+        )
+    project_activate_user.send(sender=None, project_user_pk=pu.pk)
+
+    for allocation in project.allocation_set.filter(status__name__in=['Active', 'Renewal Requested']):
+        if allocation.allocationuser_set.filter(user=user_obj).exists():
+            au = allocation.allocationuser_set.get(user=user_obj)
+            au.status = active_alloc_status
+            au.save()
+        else:
+            au = AllocationUser.objects.create(
+                allocation=allocation, user=user_obj, status=active_alloc_status,
+            )
+        allocation_activate_user.send(sender=None, allocation_user_pk=au.pk)
+
+
+def _send_enrollment_admin_notification(enrollment, http_request):
+    center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
+    notify_list = getattr(settings, 'ACCOUNT_REQUEST_NOTIFY', [])
+    if not notify_list:
+        return
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+    review_url = http_request.build_absolute_uri(
+        reverse('course-enrollment-request-detail', args=[enrollment.pk])
+    )
+    body = (
+        f"Course enrollment request submitted and awaiting review.\n\n"
+        f"  Username : {enrollment.requester_username}\n"
+        f"  Course   : {enrollment.project.title}\n"
+        f"  Notes    : {enrollment.motivation or '—'}\n\n"
+        f"Review here: {review_url}"
+    )
+    try:
+        send_mail(
+            f'[{center_name}] Course enrollment request — {enrollment.requester_username}',
+            body, from_email, notify_list, fail_silently=True,
+        )
+    except Exception:
+        pass
+
+
+def _send_enrollment_user_email(enrollment, approved: bool):
+    center_name = getattr(settings, 'CENTER_NAME', 'HPC Center')
+    from_email = getattr(settings, 'EMAIL_SENDER', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+    help_url = getattr(settings, 'CENTER_HELP_URL', '') or getattr(settings, 'EMAIL_TICKET_SYSTEM_ADDRESS', '')
+    support_line = f"\nFor questions, please open a ticket:\n\n  {help_url}" if help_url else ''
+
+    if approved:
+        body = (
+            f"Dear {enrollment.requester_username},\n\n"
+            f"your enrollment request for the course project "
+            f"\"{enrollment.project.title}\" at {center_name} has been approved.\n\n"
+            f"You now have access to the project and its active allocations."
+            f"{support_line}\n\n"
+            f"The {center_name} Team"
+        )
+        subject = f'[{center_name}] Course enrollment approved — {enrollment.project.title}'
+    else:
+        reason_section = (
+            f"\nReason:\n{enrollment.rejection_reason}\n"
+            if enrollment.rejection_reason else "\nNo specific reason was provided.\n"
+        )
+        body = (
+            f"Dear {enrollment.requester_username},\n\n"
+            f"your enrollment request for the course project "
+            f"\"{enrollment.project.title}\" at {center_name} has been rejected.\n"
+            f"{reason_section}"
+            f"{support_line}\n\n"
+            f"The {center_name} Team"
+        )
+        subject = f'[{center_name}] Course enrollment rejected — {enrollment.project.title}'
+
+    try:
+        ldap_client = LDAP()
+        user_email = ldap_client.get_email(enrollment.requester_username)
+    except Exception:
+        user_email = None
+
+    if not user_email:
+        logger.warning('Could not fetch email for %s; enrollment notification not sent.', enrollment.requester_username)
+        return
+    try:
+        EmailMessage(subject=subject, body=body, from_email=from_email, to=[user_email]).send(fail_silently=False)
+    except Exception as e:
+        logger.error('Failed to send enrollment notification to %s: %s', enrollment.requester_username, e)
+
+
+@login_required
+def course_enrollment_request(request):
+    username = request.user.username
+
+    # Check eligibility via LDAP group membership
+    current_role = None
+    try:
+        ldap_client = LDAP()
+        if ldap_client.get_user(username):
+            for g in ldap_client.get_groups_of_user(username):
+                if g in _GROUP_TO_ROLE:
+                    current_role = _GROUP_TO_ROLE[g]
+                    break
+    except Exception as e:
+        logger.warning('LDAP lookup failed for enrollment page (%s): %s', username, e)
+
+    if current_role not in _ELIGIBLE_STUDENT_ROLES:
+        return render(request, 'portal/course_enrollment_request.html', {
+            'not_eligible': True,
+            'current_role': current_role,
+        })
+
+    all_course_projects = Project.objects.filter(project_type__code='F').order_by('title')
+
+    User = get_user_model()
+    try:
+        user_obj = User.objects.get(username=username)
+        enrolled_project_ids = set(
+            ProjectUser.objects.filter(user=user_obj, status__name='Active')
+            .values_list('project_id', flat=True)
+        )
+    except User.DoesNotExist:
+        enrolled_project_ids = set()
+
+    pending_project_ids = set(
+        CourseEnrollmentRequest.objects.filter(
+            requester_username=username,
+            status=CourseEnrollmentRequest.STATUS_PENDING,
+        ).values_list('project_id', flat=True)
+    )
+
+    available_projects = all_course_projects.exclude(pk__in=enrolled_project_ids | pending_project_ids)
+
+    recent_requests = CourseEnrollmentRequest.objects.filter(
+        requester_username=username,
+    ).select_related('project').order_by('-submitted_at')[:20]
+
+    form = None
+    if available_projects.exists():
+        if request.method == 'POST':
+            form = CourseEnrollmentRequestForm(request.POST, available_projects=available_projects)
+            if form.is_valid():
+                enrollment = CourseEnrollmentRequest.objects.create(
+                    requester_username=username,
+                    project=form.cleaned_data['project'],
+                    motivation=form.cleaned_data.get('motivation', ''),
+                )
+                _send_enrollment_admin_notification(enrollment, request)
+                messages.success(request, f'Enrollment request for "{enrollment.project.title}" submitted.')
+                return redirect('course-enrollment-request')
+        else:
+            form = CourseEnrollmentRequestForm(available_projects=available_projects)
+
+    return render(request, 'portal/course_enrollment_request.html', {
+        'current_role': current_role,
+        'all_course_projects': all_course_projects,
+        'enrolled_project_ids': enrolled_project_ids,
+        'pending_project_ids': pending_project_ids,
+        'available_projects': available_projects,
+        'recent_requests': recent_requests,
+        'form': form,
+    })
+
+
+_ENROLLMENT_SORT_FIELDS = {'requester_username', 'status', 'submitted_at'}
+
+
+class CourseEnrollmentRequestListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    model = CourseEnrollmentRequest
+    template_name = 'portal/course_enrollment_request_list.html'
+    context_object_name = 'enrollment_requests'
+    paginate_by = 25
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def _get_sort_params(self):
+        order_by = self.request.GET.get('order_by', 'submitted_at')
+        direction = self.request.GET.get('direction', 'desc')
+        if order_by not in _ENROLLMENT_SORT_FIELDS:
+            order_by = 'submitted_at'
+        if direction not in ('asc', 'desc'):
+            direction = 'desc'
+        return order_by, direction
+
+    def get_queryset(self):
+        qs = CourseEnrollmentRequest.objects.select_related('project', 'processed_by')
+        if not self.request.GET:
+            return qs.filter(status=CourseEnrollmentRequest.STATUS_PENDING).order_by('-submitted_at')
+        form = CourseEnrollmentRequestSearchForm(self.request.GET)
+        if form.is_valid():
+            data = form.cleaned_data
+            if data.get('username'):
+                qs = qs.filter(requester_username__icontains=data['username'])
+            if data.get('status'):
+                qs = qs.filter(status=data['status'])
+        order_by, direction = self._get_sort_params()
+        prefix = '' if direction == 'asc' else '-'
+        return qs.order_by(f'{prefix}{order_by}')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        form = CourseEnrollmentRequestSearchForm(self.request.GET)
+        ctx['search_form'] = form
+        filter_parameters = ''
+        if form.is_valid():
+            for key, value in form.cleaned_data.items():
+                if value:
+                    filter_parameters += f'{key}={value}&'
+        ctx['expand_accordion'] = 'show' if filter_parameters else ''
+        order_by, direction = self._get_sort_params()
+        ctx['current_order_by'] = order_by
+        ctx['current_direction'] = direction
+        ctx['filter_parameters'] = filter_parameters + f'order_by={order_by}&direction={direction}'
+        ctx['filter_only_parameters'] = filter_parameters.rstrip('&')
+        return ctx
+
+
+@login_required
+def course_enrollment_request_detail(request, pk):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    enrollment = get_object_or_404(CourseEnrollmentRequest, pk=pk)
+    return render(request, 'portal/course_enrollment_request_detail.html', {'enrollment': enrollment})
+
+
+@login_required
+def course_enrollment_request_approve(request, pk):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        return redirect('course-enrollment-request-detail', pk=pk)
+    enrollment = get_object_or_404(CourseEnrollmentRequest, pk=pk)
+    if enrollment.status != CourseEnrollmentRequest.STATUS_PENDING:
+        messages.warning(request, 'This request is not pending.')
+        return redirect('course-enrollment-request-detail', pk=pk)
+
+    try:
+        _enroll_user_in_project(enrollment.requester_username, enrollment.project)
+    except Exception as e:
+        logger.exception('Failed to enroll %s in %s: %s', enrollment.requester_username, enrollment.project, e)
+        messages.error(request, f'Enrollment failed: {e}')
+        return redirect('course-enrollment-request-detail', pk=pk)
+
+    enrollment.status = CourseEnrollmentRequest.STATUS_APPROVED
+    enrollment.processed_at = timezone.now()
+    enrollment.processed_by = request.user
+    enrollment.save(update_fields=['status', 'processed_at', 'processed_by'])
+
+    _send_enrollment_user_email(enrollment, approved=True)
+    messages.success(request, f'{enrollment.requester_username} enrolled in "{enrollment.project.title}".')
+    return redirect('course-enrollment-request-detail', pk=pk)
+
+
+@login_required
+def course_enrollment_request_reject(request, pk):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        return redirect('course-enrollment-request-detail', pk=pk)
+    enrollment = get_object_or_404(CourseEnrollmentRequest, pk=pk)
+    if enrollment.status != CourseEnrollmentRequest.STATUS_PENDING:
+        messages.warning(request, 'This request is not pending.')
+        return redirect('course-enrollment-request-detail', pk=pk)
+
+    enrollment.status = CourseEnrollmentRequest.STATUS_REJECTED
+    enrollment.processed_at = timezone.now()
+    enrollment.processed_by = request.user
+    enrollment.rejection_reason = request.POST.get('rejection_reason', '').strip()
+    enrollment.save(update_fields=['status', 'processed_at', 'processed_by', 'rejection_reason'])
+
+    _send_enrollment_user_email(enrollment, approved=False)
+    messages.success(request, f'Enrollment for {enrollment.requester_username} rejected.')
+    return redirect('course-enrollment-request-detail', pk=pk)

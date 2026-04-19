@@ -1,0 +1,143 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Account Renewal{% endblock %}
+
+{% block content %}
+<h2>Account Renewal</h2>
+<hr>
+
+{% if ldap_user %}
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="d-inline"><i class="fas fa-user" aria-hidden="true"></i> Your account</h3>
+    {% if days_until_expiry is not None %}
+      <div class="float-right">
+        {% if days_until_expiry <= 0 %}
+          <span class="badge badge-danger">Expired</span>
+        {% elif days_until_expiry <= 14 %}
+          <span class="badge badge-danger">Expires in {{ days_until_expiry }} day{{ days_until_expiry|pluralize }}</span>
+        {% else %}
+          <span class="badge badge-warning">Expires in {{ days_until_expiry }} day{{ days_until_expiry|pluralize }}</span>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-3">Username</dt>
+      <dd class="col-sm-9"><code>{{ ldap_user.uid|default:request.user.username }}</code></dd>
+
+      <dt class="col-sm-3">Current role</dt>
+      <dd class="col-sm-9">{{ current_role|default:"&mdash;" }}</dd>
+
+      <dt class="col-sm-3">Expiration date</dt>
+      <dd class="col-sm-9">{{ current_expiration|default:"&mdash;" }}</dd>
+    </dl>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-warning">
+  <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+  No LDAP account was found for your username (<strong>{{ request.user.username }}</strong>).
+  If you believe this is an error, please <a href="{% if settings.CENTER_HELP_URL %}{{ settings.CENTER_HELP_URL }}{% else %}#{% endif %}">open a support ticket</a>.
+</div>
+{% endif %}
+
+{% if pending %}
+<div class="card mb-3 border-info">
+  <div class="card-header bg-info text-white">
+    <h3 class="d-inline"><i class="fas fa-clock" aria-hidden="true"></i> Pending request</h3>
+  </div>
+  <div class="card-body">
+    <p>You have a renewal request awaiting review. You will be notified by email when it is processed.</p>
+    <dl class="row mb-0">
+      <dt class="col-sm-4">Submitted</dt>
+      <dd class="col-sm-8">{{ pending.submitted_at|date:"Y-m-d H:i" }}</dd>
+
+      <dt class="col-sm-4">Requested expiration</dt>
+      <dd class="col-sm-8">{{ pending.requested_expiration_date }}</dd>
+
+      {% if pending.role_changed %}
+      <dt class="col-sm-4">Requested role</dt>
+      <dd class="col-sm-8">{{ pending.new_role }}</dd>
+      {% endif %}
+
+      {% if pending.notes %}
+      <dt class="col-sm-4">Notes</dt>
+      <dd class="col-sm-8">{{ pending.notes }}</dd>
+      {% endif %}
+    </dl>
+  </div>
+</div>
+{% elif ldap_user %}
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="d-inline"><i class="fas fa-redo" aria-hidden="true"></i> Request renewal</h3>
+  </div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="{{ form.requested_expiration_date.id_for_label }}">{{ form.requested_expiration_date.label }}</label>
+        {{ form.requested_expiration_date }}
+        {% if form.requested_expiration_date.errors %}
+          <div class="invalid-feedback d-block">{{ form.requested_expiration_date.errors|join:" " }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <div class="form-check">
+          {{ form.role_changed }}
+          <label class="form-check-label" for="{{ form.role_changed.id_for_label }}">
+            {{ form.role_changed.label }}
+          </label>
+        </div>
+      </div>
+
+      <div id="role-change-fields" style="display:none;">
+        <div class="form-group">
+          <label for="{{ form.new_role.id_for_label }}">{{ form.new_role.label }}</label>
+          {{ form.new_role }}
+          {% if form.new_role.errors %}
+            <div class="invalid-feedback d-block">{{ form.new_role.errors|join:" " }}</div>
+          {% endif %}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.proof_document.id_for_label }}">{{ form.proof_document.label }}</label>
+          {{ form.proof_document }}
+          <small class="form-text text-muted">{{ form.proof_document.help_text }}</small>
+          {% if form.proof_document.errors %}
+            <div class="invalid-feedback d-block">{{ form.proof_document.errors|join:" " }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }} <small class="text-muted">(optional)</small></label>
+        {{ form.notes }}
+        {% if form.notes.errors %}
+          <div class="invalid-feedback d-block">{{ form.notes.errors|join:" " }}</div>
+        {% endif %}
+      </div>
+
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-paper-plane" aria-hidden="true"></i> Submit request
+      </button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  (function () {
+    var cb = document.getElementById('{{ form.role_changed.id_for_label }}');
+    var fields = document.getElementById('role-change-fields');
+    function toggle() { if (fields) fields.style.display = cb && cb.checked ? '' : 'none'; }
+    if (cb) { cb.addEventListener('change', toggle); toggle(); }
+  })();
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-account-renewal").addClass("active");
+</script>
+{% endblock %}

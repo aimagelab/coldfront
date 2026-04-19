@@ -10,22 +10,7 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.mail import EmailMessage
 
-from django.contrib.auth.models import User
-
 from coldfront.core.portal.models import AccountOnboardingRequest
-from coldfront.core.project.models import (
-    Project,
-    ProjectUser,
-    ProjectUserRoleChoice,
-    ProjectUserStatusChoice,
-)
-from coldfront.core.project.signals import project_activate_user
-from coldfront.core.allocation.models import (
-    Allocation,
-    AllocationUser,
-    AllocationUserStatusChoice,
-)
-from coldfront.core.allocation.signals import allocation_activate_user
 from coldfront.plugins.ldap_groups.ldap_connector import LDAP
 from coldfront.plugins.ldap_groups.utils import (
     ACCESS_GROUPS,
@@ -151,8 +136,6 @@ class Command(BaseCommand):
             ldap_client.add_user_to_groups(req.username, [role_group])
             self._ensure_home_directory(req.username)
             self._send_welcome_email(req, raw_pw)
-            if req.role == AccountOnboardingRequest.ROLE_COURSE and req.course_project_id:
-                self._add_user_to_course_project(req)
 
         if not dry_run:
             # Mark request as processed in LDAP
@@ -268,53 +251,3 @@ class Command(BaseCommand):
         except Exception as e:
             logger.warning('Failed to set quota for %s: %s', username, e)
 
-    # ------------------------------------------------------------------
-    # Course project helpers
-    # ------------------------------------------------------------------
-    def _add_user_to_course_project(self, req: AccountOnboardingRequest):
-        """Add the newly provisioned course student to their course project and all its allocations."""
-        try:
-            user_obj, _ = User.objects.get_or_create(username=req.username)
-            user_obj.first_name = req.given_name
-            user_obj.last_name = req.surname
-            user_obj.email = req.email
-            user_obj.save()
-
-            project = req.course_project
-            user_role = ProjectUserRoleChoice.objects.get(name='User')
-            active_project_status = ProjectUserStatusChoice.objects.get(name='Active')
-            active_alloc_user_status = AllocationUserStatusChoice.objects.get(name='Active')
-
-            # Add to project
-            if project.projectuser_set.filter(user=user_obj).exists():
-                project_user_obj = project.projectuser_set.get(user=user_obj)
-                project_user_obj.role = user_role
-                project_user_obj.status = active_project_status
-                project_user_obj.save()
-            else:
-                project_user_obj = ProjectUser.objects.create(
-                    user=user_obj,
-                    project=project,
-                    role=user_role,
-                    status=active_project_status,
-                )
-            project_activate_user.send(sender=self.__class__, project_user_pk=project_user_obj.pk)
-
-            # Add to all active allocations of the project
-            active_alloc_statuses = ['Active', 'Renewal Requested']
-            for allocation in project.allocation_set.filter(status__name__in=active_alloc_statuses):
-                if allocation.allocationuser_set.filter(user=user_obj).exists():
-                    alloc_user_obj = allocation.allocationuser_set.get(user=user_obj)
-                    alloc_user_obj.status = active_alloc_user_status
-                    alloc_user_obj.save()
-                else:
-                    alloc_user_obj = AllocationUser.objects.create(
-                        allocation=allocation,
-                        user=user_obj,
-                        status=active_alloc_user_status,
-                    )
-                allocation_activate_user.send(sender=self.__class__, allocation_user_pk=alloc_user_obj.pk)
-
-            logger.info('Added user %s to course project %s', req.username, project.pk)
-        except Exception as e:
-            logger.error('Failed to add user %s to course project %s: %s', req.username, req.course_project_id, e)

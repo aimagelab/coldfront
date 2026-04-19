@@ -168,6 +168,101 @@ class AccountOnboardingRequest(models.Model):
         return bool(self.unimore_id)
 
 
+class AccountRenewalRequest(models.Model):
+    STATUS_PENDING = 'Pending'
+    STATUS_APPROVED = 'Approved'
+    STATUS_REJECTED = 'Rejected'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_APPROVED, 'Approved'),
+        (STATUS_REJECTED, 'Rejected'),
+    ]
+
+    requester_username = models.CharField(max_length=150, db_index=True)
+    # Snapshot of LDAP state at submission time
+    current_role = models.CharField(max_length=40, blank=True)
+    current_expiration_date = models.DateField(null=True, blank=True)
+    # Requested changes
+    requested_expiration_date = models.DateField()
+    role_changed = models.BooleanField(default=False)
+    new_role = models.CharField(max_length=40, blank=True, choices=AccountOnboardingRequest.ROLE_CHOICES)
+    proof_document = models.FileField(
+        upload_to='renewal_proofs/',
+        null=True,
+        blank=True,
+        help_text='Required when role has changed (e.g. new contract or appointment letter).',
+    )
+    notes = models.TextField(blank=True)
+    # Workflow
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    processed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processed_renewal_requests',
+    )
+    rejection_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['requester_username', 'status'],
+                condition=models.Q(status='Pending'),
+                name='unique_pending_renewal_per_user',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.requester_username} renewal ({self.status})"
+
+
+class CourseEnrollmentRequest(models.Model):
+    STATUS_PENDING = 'Pending'
+    STATUS_APPROVED = 'Approved'
+    STATUS_REJECTED = 'Rejected'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_APPROVED, 'Approved'),
+        (STATUS_REJECTED, 'Rejected'),
+    ]
+
+    requester_username = models.CharField(max_length=150, db_index=True)
+    project = models.ForeignKey(
+        'project.Project',
+        on_delete=models.CASCADE,
+        related_name='enrollment_requests',
+    )
+    motivation = models.TextField(blank=True)
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    processed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processed_enrollment_requests',
+    )
+    rejection_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['requester_username', 'project', 'status'],
+                condition=models.Q(status='Pending'),
+                name='unique_pending_enrollment_per_user_project',
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.requester_username} → {self.project} ({self.status})"
+
+
 class LdapUserEdit(models.Model):
     """Audit log for direct LDAP user attribute edits made via the portal."""
     editor = models.ForeignKey(

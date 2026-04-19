@@ -1,0 +1,135 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Renewal Request — {{ renewal.requester_username }}{% endblock %}
+
+{% block content %}
+<h2>Account Renewal Request</h2>
+<hr>
+
+<div class="row">
+  <div class="col">
+    <a href="{% url 'account-renewal-request-list' %}" class="btn btn-secondary mb-3">
+      <i class="fas fa-arrow-left" aria-hidden="true"></i> Back to List
+    </a>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="d-inline"><i class="fas fa-user" aria-hidden="true"></i> {{ renewal.requester_username }}</h3>
+    <div class="float-right">
+      {% if renewal.status == 'Pending' %}
+        <span class="badge badge-warning">Pending</span>
+      {% elif renewal.status == 'Approved' %}
+        <span class="badge badge-success">Approved</span>
+      {% else %}
+        <span class="badge badge-danger">Rejected</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6">
+        <dl class="row">
+          <dt class="col-sm-4">Username</dt>
+          <dd class="col-sm-8">{{ renewal.requester_username }}</dd>
+
+          <dt class="col-sm-4">Current Role</dt>
+          <dd class="col-sm-8">{{ renewal.current_role|default:"&mdash;" }}</dd>
+
+          <dt class="col-sm-4">Current Expiry</dt>
+          <dd class="col-sm-8">{{ renewal.current_expiration_date|default:"&mdash;" }}</dd>
+
+          <dt class="col-sm-4">Submitted</dt>
+          <dd class="col-sm-8">{{ renewal.submitted_at|date:"M. d, Y H:i" }}</dd>
+        </dl>
+      </div>
+      <div class="col-md-6">
+        <dl class="row">
+          <dt class="col-sm-4">Req. Expiry</dt>
+          <dd class="col-sm-8">{{ renewal.requested_expiration_date }}</dd>
+
+          <dt class="col-sm-4">Role Changed</dt>
+          <dd class="col-sm-8">
+            {% if renewal.role_changed %}
+              <span class="badge badge-info">Yes &rarr; {{ renewal.new_role }}</span>
+            {% else %}
+              No
+            {% endif %}
+          </dd>
+
+          {% if renewal.proof_document %}
+          <dt class="col-sm-4">Proof</dt>
+          <dd class="col-sm-8"><a href="{{ renewal.proof_document.url }}" target="_blank">Download</a></dd>
+          {% endif %}
+
+          {% if renewal.notes %}
+          <dt class="col-sm-4">Notes</dt>
+          <dd class="col-sm-8">{{ renewal.notes }}</dd>
+          {% endif %}
+
+          {% if renewal.status != 'Pending' %}
+          <dt class="col-sm-4">Processed</dt>
+          <dd class="col-sm-8">{{ renewal.processed_by.username|default:"&mdash;" }} on {{ renewal.processed_at|date:"M. d, Y H:i" }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if renewal.status == 'Pending' %}
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="d-inline"><i class="fas fa-check-circle" aria-hidden="true"></i> Actions</h3>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{% url 'account-renewal-request-approve' renewal.pk %}">
+      {% csrf_token %}
+      <div class="form-row mb-3">
+        <div class="form-group col-md-5">
+          <label for="{{ approve_form.role.id_for_label }}">Role to assign</label>
+          {{ approve_form.role }}
+          {% if approve_form.role.errors %}
+            <div class="invalid-feedback d-block">{{ approve_form.role.errors|join:" " }}</div>
+          {% endif %}
+        </div>
+        <div class="form-group col-md-4">
+          <label for="{{ approve_form.expiration_date.id_for_label }}">Expiration date to set</label>
+          {{ approve_form.expiration_date }}
+          {% if approve_form.expiration_date.errors %}
+            <div class="invalid-feedback d-block">{{ approve_form.expiration_date.errors|join:" " }}</div>
+          {% endif %}
+        </div>
+      </div>
+      <button type="submit" class="btn btn-success">Approve</button>
+    </form>
+    <hr>
+    <form method="post" action="{% url 'account-renewal-request-reject' renewal.pk %}">
+      {% csrf_token %}
+      <div class="form-group mt-2">
+        <label for="rejection_reason">Rejection reason <small class="text-muted">(optional)</small></label>
+        <textarea name="rejection_reason" id="rejection_reason" class="form-control" rows="3"
+                  placeholder="Explain why this request is being rejected..."></textarea>
+      </div>
+      <button type="submit" class="btn btn-danger">Reject</button>
+    </form>
+  </div>
+</div>
+
+{% elif renewal.status == 'Rejected' and renewal.rejection_reason %}
+<div class="card mb-3 border-danger">
+  <div class="card-header bg-danger text-white">
+    <h3 class="d-inline"><i class="fas fa-times-circle" aria-hidden="true"></i> Rejection Reason</h3>
+  </div>
+  <div class="card-body">{{ renewal.rejection_reason }}</div>
+</div>
+{% endif %}
+
+<script>
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-admin").addClass("active");
+  $("#navbar-renewal-requests").addClass("active");
+</script>
+{% endblock %}

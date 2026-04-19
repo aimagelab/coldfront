@@ -3,6 +3,21 @@
 
 
 {% block content %}
+{% if account_days_until_expiry is not None %}
+<div class="alert {% if account_days_until_expiry <= 0 %}alert-danger{% elif account_days_until_expiry <= 14 %}alert-danger{% else %}alert-warning{% endif %} d-flex align-items-center justify-content-between" role="alert">
+  <span>
+    <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+    {% if account_days_until_expiry <= 0 %}
+      Your account has <strong>expired</strong> ({{ account_expiry_date }}).
+    {% else %}
+      Your account expires in <strong>{{ account_days_until_expiry }} day{{ account_days_until_expiry|pluralize }}</strong> ({{ account_expiry_date }}).
+    {% endif %}
+  </span>
+  <a href="{% url 'account-renewal-request' %}" class="btn btn-sm btn-light ml-3 text-nowrap">
+    <i class="fas fa-redo" aria-hidden="true"></i> Request renewal
+  </a>
+</div>
+{% endif %}
 <div class="row">
 
   <div class="col-lg-6 mt-2">
@@ -26,6 +41,7 @@
     <hr>
     <a class="btn btn-primary btn-block" href="{% url 'proposal-type-select' %}" role="button">Apply for computational resources</a>
     <a class="btn btn-outline-secondary btn-sm btn-block mt-1" href="{% url 'proposal-list' %}" role="button">My proposals</a>
+    <a class="btn btn-outline-secondary btn-sm btn-block mt-1" href="{% url 'course-enrollment-request' %}" role="button"><i class="fas fa-graduation-cap" aria-hidden="true"></i> Course Enrollment</a>
   </div>
 
   <div class="col-lg-6 mt-2">

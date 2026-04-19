@@ -1,0 +1,101 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Enrollment Request — {{ enrollment.requester_username }}{% endblock %}
+
+{% block content %}
+<h2>Course Enrollment Request</h2>
+<hr>
+
+<div class="row">
+  <div class="col">
+    <a href="{% url 'course-enrollment-request-list' %}" class="btn btn-secondary mb-3">
+      <i class="fas fa-arrow-left" aria-hidden="true"></i> Back to List
+    </a>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="d-inline"><i class="fas fa-user" aria-hidden="true"></i> {{ enrollment.requester_username }}</h3>
+    <div class="float-right">
+      {% if enrollment.status == 'Pending' %}
+        <span class="badge badge-warning">Pending</span>
+      {% elif enrollment.status == 'Approved' %}
+        <span class="badge badge-success">Approved</span>
+      {% else %}
+        <span class="badge badge-danger">Rejected</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6">
+        <dl class="row">
+          <dt class="col-sm-4">Username</dt>
+          <dd class="col-sm-8">{{ enrollment.requester_username }}</dd>
+
+          <dt class="col-sm-4">Project</dt>
+          <dd class="col-sm-8">
+            {% if enrollment.project %}
+              <a href="{% url 'project-detail' enrollment.project.pk %}">{{ enrollment.project.title }}</a>
+            {% else %}&mdash;{% endif %}
+          </dd>
+
+          <dt class="col-sm-4">Submitted</dt>
+          <dd class="col-sm-8">{{ enrollment.submitted_at|date:"M. d, Y H:i" }}</dd>
+        </dl>
+      </div>
+      <div class="col-md-6">
+        <dl class="row">
+          <dt class="col-sm-4">Motivation</dt>
+          <dd class="col-sm-8">{{ enrollment.motivation|default:"&mdash;" }}</dd>
+
+          {% if enrollment.status != 'Pending' %}
+          <dt class="col-sm-4">Processed</dt>
+          <dd class="col-sm-8">{{ enrollment.processed_by.username|default:"&mdash;" }} on {{ enrollment.processed_at|date:"M. d, Y H:i" }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if enrollment.status == 'Pending' %}
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="d-inline"><i class="fas fa-check-circle" aria-hidden="true"></i> Actions</h3>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{% url 'course-enrollment-request-approve' enrollment.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-success">Approve</button>
+    </form>
+    <hr>
+    <form method="post" action="{% url 'course-enrollment-request-reject' enrollment.pk %}">
+      {% csrf_token %}
+      <div class="form-group mt-2">
+        <label for="rejection_reason">Rejection reason <small class="text-muted">(optional)</small></label>
+        <textarea name="rejection_reason" id="rejection_reason" class="form-control" rows="3"
+                  placeholder="Explain why this request is being rejected..."></textarea>
+      </div>
+      <button type="submit" class="btn btn-danger">Reject</button>
+    </form>
+  </div>
+</div>
+
+{% elif enrollment.status == 'Rejected' and enrollment.rejection_reason %}
+<div class="card mb-3 border-danger">
+  <div class="card-header bg-danger text-white">
+    <h3 class="d-inline"><i class="fas fa-times-circle" aria-hidden="true"></i> Rejection Reason</h3>
+  </div>
+  <div class="card-body">{{ enrollment.rejection_reason }}</div>
+</div>
+{% endif %}
+
+<script>
+  $("#navbar-main > ul > li.active").removeClass("active");
+  $("#navbar-admin").addClass("active");
+  $("#navbar-enrollment-requests").addClass("active");
+</script>
+{% endblock %}

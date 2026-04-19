@@ -31,13 +31,6 @@
     <label class="form-label">Role <span class="text-danger">*</span></label>
     {{ form.role }}
   </div>
-  <div class="mb-3" id="course-wrapper">
-    <label class="form-label">Course (only for "Student from a course")</label>
-    {{ form.course_project }}
-    {% if not has_courses %}
-      <div class="text-warning small">No course projects are currently available.</div>
-    {% endif %}
-  </div>
   <div class="mb-3" id="exp-wrapper">
     <label class="form-label">Position / Contract Expiration Date</label>
     {{ form.expiration_date }}
@@ -59,7 +52,6 @@
 (function(){
   const roleSelect = document.getElementById('id_role');
   const expWrapper = document.getElementById('exp-wrapper');
-  const courseWrapper = document.getElementById('course-wrapper');
   const expRequiredRoles = new Set([
     "Studente di Dottorato",
     "Assegno di Ricerca",
@@ -76,7 +68,6 @@
   function toggle(){
     const role = roleSelect.value;
     expWrapper.style.display = expRequiredRoles.has(role) ? '' : 'none';
-    courseWrapper.style.display = (role === 'Studente da un corso') ? '' : 'none';
   }
   roleSelect.addEventListener('change', toggle);
   toggle();

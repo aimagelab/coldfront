@@ -1,10 +1,10 @@
 {% extends "common/base.html" %}
 {% load static %}
 
-{% block title %}Onboarding Request - {{ onboarding_request.username }}{% endblock %}
+{% block title %}Account Onboarding Request — {{ onboarding_request.username }}{% endblock %}
 
 {% block content %}
-<h2>Onboarding Request</h2>
+<h2>Account Onboarding Request</h2>
 <hr>
 
 <div class="row">
@@ -56,15 +56,6 @@
           <dt class="col-sm-4">Role</dt>
           <dd class="col-sm-8">{{ onboarding_request.role }}</dd>
 
-          <dt class="col-sm-4">Course</dt>
-          <dd class="col-sm-8">
-            {% if onboarding_request.course_project %}
-              <a href="{% url 'project-detail' onboarding_request.course_project.pk %}">{{ onboarding_request.course_project.title }}</a>
-            {% else %}
-              &mdash;
-            {% endif %}
-          </dd>
-
           <dt class="col-sm-4">Expiration</dt>
           <dd class="col-sm-8">{{ onboarding_request.expiration_date|default:"&mdash;" }}</dd>
 
@@ -115,13 +106,6 @@
             {{ approve_form.expiration_date }}
             {% if approve_form.expiration_date.errors %}
               <div class="invalid-feedback d-block">{{ approve_form.expiration_date.errors|join:" " }}</div>
-            {% endif %}
-          </div>
-          <div class="form-group col-md-5">
-            <label for="{{ approve_form.course_project.id_for_label }}">Course <small class="text-muted">(if applicable)</small></label>
-            {{ approve_form.course_project }}
-            {% if approve_form.course_project.errors %}
-              <div class="invalid-feedback d-block">{{ approve_form.course_project.errors|join:" " }}</div>
             {% endif %}
           </div>
         </div>

@@ -45,6 +45,16 @@ urlpatterns = [
     path("onboarding-requests/<int:pk>/approve", portal_views.onboarding_request_approve, name="onboarding-request-approve"),
     path("onboarding-requests/<int:pk>/reject", portal_views.onboarding_request_reject, name="onboarding-request-reject"),
     path("ldap-user-edit", portal_views.ldap_user_edit, name="ldap-user-edit"),
+    path("account-renewal", portal_views.account_renewal_request, name="account-renewal-request"),
+    path("account-renewal-requests", portal_views.AccountRenewalRequestListView.as_view(), name="account-renewal-request-list"),
+    path("account-renewal-requests/<int:pk>/", portal_views.account_renewal_request_detail, name="account-renewal-request-detail"),
+    path("account-renewal-requests/<int:pk>/approve", portal_views.account_renewal_request_approve, name="account-renewal-request-approve"),
+    path("account-renewal-requests/<int:pk>/reject", portal_views.account_renewal_request_reject, name="account-renewal-request-reject"),
+    path("course-enrollment", portal_views.course_enrollment_request, name="course-enrollment-request"),
+    path("course-enrollment-requests", portal_views.CourseEnrollmentRequestListView.as_view(), name="course-enrollment-request-list"),
+    path("course-enrollment-requests/<int:pk>/", portal_views.course_enrollment_request_detail, name="course-enrollment-request-detail"),
+    path("course-enrollment-requests/<int:pk>/approve", portal_views.course_enrollment_request_approve, name="course-enrollment-request-approve"),
+    path("course-enrollment-requests/<int:pk>/reject", portal_views.course_enrollment_request_reject, name="course-enrollment-request-reject"),
     path("communications/", include("coldfront.core.communications.urls")),
 ]
 

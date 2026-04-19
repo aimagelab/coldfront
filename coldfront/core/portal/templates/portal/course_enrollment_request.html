@@ -1,0 +1,81 @@
+{% extends "common/base.html" %}
+{% load static %}
+{% block content %}
+<h1>Course Enrollment</h1>
+
+{% if not_eligible %}
+  <div class="alert alert-warning">
+    <strong>Not eligible.</strong>
+    Course enrollment is only available for students (<em>Studente in tesi</em> or <em>Studente da un corso</em>).
+    {% if current_role %}Your current role is: <strong>{{ current_role }}</strong>.{% endif %}
+  </div>
+{% else %}
+
+  {% if current_role %}
+  <div class="card mb-3">
+    <div class="card-body py-2">
+      <span class="text-muted">Current role:</span> <strong>{{ current_role }}</strong>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if form %}
+  <div class="card mb-4">
+    <div class="card-header"><h5 class="mb-0">Request Enrollment in a Course Project</h5></div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="form-group">
+          <label for="{{ form.project.id_for_label }}">Course Project <span class="text-danger">*</span></label>
+          {{ form.project }}
+          {% if form.project.errors %}<div class="text-danger small mt-1">{{ form.project.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.motivation.id_for_label }}">Motivation</label>
+          {{ form.motivation }}
+          {% if form.motivation.errors %}<div class="text-danger small mt-1">{{ form.motivation.errors|join:", " }}</div>{% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary">Submit Request</button>
+      </form>
+    </div>
+  </div>
+  {% else %}
+  <div class="alert alert-info">
+    You are already enrolled or have pending requests for all available course projects.
+  </div>
+  {% endif %}
+
+  {% if recent_requests %}
+  <h5>Your Enrollment Requests</h5>
+  <table class="table table-sm">
+    <thead>
+      <tr>
+        <th>Project</th>
+        <th>Status</th>
+        <th>Submitted</th>
+        <th>Processed</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for req in recent_requests %}
+      <tr>
+        <td>
+          {% if req.project %}
+            <a href="{% url 'project-detail' req.project.pk %}">{{ req.project.title }}</a>
+          {% else %}&mdash;{% endif %}
+        </td>
+        <td>
+          {% if req.status == 'Pending' %}<span class="badge badge-warning">Pending</span>
+          {% elif req.status == 'Approved' %}<span class="badge badge-success">Approved</span>
+          {% else %}<span class="badge badge-danger">Rejected</span>{% endif %}
+        </td>
+        <td>{{ req.submitted_at|date:"M. d, Y" }}</td>
+        <td>{{ req.processed_at|date:"M. d, Y"|default:"&mdash;" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+{% endif %}
+{% endblock %}
